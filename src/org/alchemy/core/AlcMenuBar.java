@@ -45,6 +45,8 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
     private AlcCheckBoxMenuItem linkSessionItem;
     /** Fullscreen toggle global so it can be set on startup */
     AlcCheckBoxMenuItem fullScreenItem, transparentItem;
+    /** File > Export for print */
+    private AlcHighResDialog hiresDialog;
     /** View > Exact render, kept in sync with the toolbar button */
     private AlcCheckBoxMenuItem exactRenderItem;
 
@@ -128,6 +130,22 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         exportItem.setup(exportTitle, exportKey);
 
         fileMenu.add(exportItem);
+
+        // Export for print: large images rendered from the vectors
+        AbstractAction hiresAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                if (hiresDialog == null) {
+                    hiresDialog = new AlcHighResDialog();
+                }
+                hiresDialog.showWindow();
+            }
+        };
+        AlcMenuItem hiresItem = new AlcMenuItem(hiresAction);
+        int hiresKey = Alchemy.shortcuts.setShortcut(hiresItem, KeyEvent.VK_E, "hiresTitle", hiresAction, KEY_MODIFIER | KeyEvent.SHIFT_MASK);
+        hiresItem.setup(getS("hiresTitle"), hiresKey);
+        hiresItem.setAccelerator(KeyStroke.getKeyStroke(hiresKey, KEY_MODIFIER | KeyEvent.SHIFT_MASK));
+        fileMenu.add(hiresItem);
 
         fileMenu.add(new JSeparator());
 

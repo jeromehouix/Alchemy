@@ -18,6 +18,7 @@ package org.alchemy.core;
 
 import java.awt.*;
 import java.awt.color.ColorSpace;
+import java.awt.geom.AffineTransform;
 import java.awt.image.*;
 import java.util.List;
 
@@ -113,8 +114,29 @@ final class AlcExactRenderer {
 
     /** Composite one shape into the float buffer */
     private void composite(AlcShape shape) {
+        Rectangle changed = composite(acc, width, height, 0, 0, shape, null, smoothing);
+        if (changed != null) {
+            dirty = dirty == null ? changed : dirty.union(changed);
+        }
+    }
+
+    /**
+     * Composite one shape into a float buffer, in high precision
+     *
+     * @param acc       Buffer, 3 floats (r, g, b in 0-1) per pixel
+     * @param accW      Width of the buffer
+     * @param accH      Height of the buffer
+     * @param offX      Position of the buffer in the target image (for band rendering)
+     * @param offY      Position of the buffer in the target image
+     * @param shape     Shape, in canvas coordinates
+     * @param at        Canvas to target image transform (scale for exports, view for zoom), or null
+     * @param smoothing Anti-aliasing
+     * @return          The area changed, in target image coordinates, or null
+     */
+    static Rectangle composite(float[] acc, int accW, int accH, int offX, int offY,
+            AlcShape shape, AffineTransform at, boolean smoothing) {
         if (shape == null || shape.path == null) {
-            return;
+            return null;
         }
         Shape outline;
         if (shape.style == AlcConstants.STYLE_STROKE) {
@@ -122,12 +144,13 @@ final class AlcExactRenderer {
         } else {
             outline = shape.path;
         }
-        Rectangle bounds = outline.getBounds().intersection(new Rectangle(0, 0, width, height));
+        Rectangle region = new Rectangle(offX, offY, accW, accH);
+        Shape target = at == null ? outline : at.createTransformedShape(outline);
+        Rectangle bounds = target.getBounds();
         // Anti-aliasing can touch one more pixel around the shape
-        bounds = new Rectangle(bounds.x - 1, bounds.y - 1, bounds.width + 2, bounds.height + 2)
-                .intersection(new Rectangle(0, 0, width, height));
+        bounds = new Rectangle(bounds.x - 1, bounds.y - 1, bounds.width + 2, bounds.height + 2).intersection(region);
         if (bounds.isEmpty()) {
-            return;
+            return null;
         }
 
         // Draw the shape with an opaque paint: the alpha of each pixel is then the coverage
@@ -142,20 +165,24 @@ final class AlcExactRenderer {
             opacity = shape.getOpacity();
         }
         if (opacity <= 0f) {
-            return;
+            return null;
         }
         BufferedImage mask = new BufferedImage(bounds.width, bounds.height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = mask.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 smoothing ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF);
+        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
         g.translate(-bounds.x, -bounds.y);
+        if (at != null) {
+            g.transform(at);
+        }
         g.setPaint(paint);
         g.fill(outline);
         g.dispose();
 
         int[] px = ((DataBufferInt) mask.getRaster().getDataBuffer()).getData();
         for (int y = 0; y < bounds.height; y++) {
-            int row = (bounds.y + y) * width + bounds.x;
+            int row = (bounds.y - offY + y) * accW + (bounds.x - offX);
             for (int x = 0; x < bounds.width; x++) {
                 int argb = px[y * bounds.width + x];
                 int a = argb >>> 24;
@@ -169,7 +196,7 @@ final class AlcExactRenderer {
                 acc[i + 2] += ((argb & 0xFF) / 255f - acc[i + 2]) * alpha;
             }
         }
-        dirty = dirty == null ? bounds : dirty.union(bounds);
+        return bounds;
     }
 
     /** Copy the dirty area of the float buffer into the display image, rounding once */
