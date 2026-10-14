@@ -374,6 +374,20 @@ class AlcVectorIcon extends ImageIcon {
             t.closePath();
             g.fill(t);
         });
+        icon("import", 15, 15, (g, w, h, s) -> {
+            box(g, w, h, 24);
+            g.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.draw(path(12, 3, 12, 14));
+            g.draw(path(7, 9.5f, 12, 14.5f, 17, 9.5f));
+            g.draw(path(4, 15, 4, 20, 20, 20, 20, 15));
+        });
+        icon("folder", 15, 15, (g, w, h, s) -> {
+            box(g, w, h, 24);
+            g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            Path2D f = path(3, 6, 9, 6, 11, 8.5f, 21, 8.5f, 21, 19, 3, 19);
+            f.closePath();
+            g.draw(f);
+        });
         icon("colours", 15, 15, (g, w, h, s) -> {
             box(g, w, h, 24);
             boolean on = s == ON || s == ON_OVER;
