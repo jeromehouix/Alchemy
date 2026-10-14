@@ -116,11 +116,11 @@ public class SplatterShapes extends AlcModule {
         //Math.floor(1F * Math.pow(math.random(1), 4))
         int quarterDrips = drips / 4;
         for (int i = 0; i < quarterDrips + math.random(0, drips); i++) {
-            // positioning of splotch varies between ±4dd, tending towards 0
+            // positioning of splotch varies between Â±4dd, tending towards 0
             int splat_range = 1;
             float x4 = (float) (splotch * 1F * (Math.pow(math.random(1), splat_range) - (splat_range / 2F)));
             float y4 = (float) (splotch * 1F * (Math.pow(math.random(1), splat_range) - (splat_range / 2F)));
-            // direction of splotch varies between ±0.5
+            // direction of splotch varies between Â±0.5
             float x5 = math.random(1) - 0.5F;
             float y5 = math.random(1) - 0.5F;
             float dd = d * (0.5F + math.random(1));
