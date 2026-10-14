@@ -1,8 +1,9 @@
 # Alchemy — reprise (fork)
 
 Fork de [karldd/Alchemy](https://github.com/karldd/Alchemy), qui n'est plus maintenu depuis 2017.
-Objectif : faire tourner Alchemy sur les machines actuelles, Mac Apple Silicon compris, **sans changer son rendu**.
-Le moteur de dessin, les modules et l'export SVG/PDF sont ceux de la version 008.
+Objectif : faire tourner Alchemy sur les machines actuelles, Mac Apple Silicon compris, **sans changer son rendu**,
+et le pousser plus loin pour l'accumulation de milliers de couches très transparentes et le travail au tampon.
+Le rendu classique à l'écran est celui de la version 008. Les nouveautés sont des options.
 
 ## Installer sur Mac (Apple Silicon)
 
@@ -16,8 +17,19 @@ Le moteur de dessin, les modules et l'export SVG/PDF sont ceux de la version 008
 ## Tampons (Pull Shapes)
 
 Les tampons sont lus dans **`~/Documents/Alchemy/shapes`**. Ce dossier est créé au premier lancement avec les tampons fournis (Bones, Circles, Parts, Tanagram).
-- Chaque **fichier PDF** y devient une source de formes, et chaque **sous-dossier** une catégorie.
-- Seuls les contours vectoriels sont repris. Les tampons prennent la couleur et la transparence choisies dans Alchemy.
+- Chaque fichier **PDF ou SVG** y devient une source de formes, et chaque **sous-dossier** une catégorie. Le bouton **Reload** relit le dossier sans redémarrer.
+- **Whole** (illustration entière) : chaque tampon pose une illustration complète (une page de PDF ou un fichier SVG) au lieu d'une forme isolée. L'agrandissement et la rotation aléatoires s'appliquent à l'illustration entière.
+- **Colours** (couleurs d'origine) : les tampons gardent les couleurs et transparences du fichier au lieu de la couleur courante. L'opacité courante multiplie celle du fichier.
+- Sans ces options, le comportement est celui d'origine : une forme isolée, à la couleur et à l'opacité courantes.
+- Lecture des SVG : chemins, formes simples, groupes, transformations, `<use>`, styles et feuilles de style simples (comme les exports d'Illustrator ou d'Inkscape). Le texte, les images, les masques et les filtres sont ignorés. Les dégradés sont réduits à leur couleur moyenne.
+
+## Opacité et accumulation de couches
+
+- **Curseur d'opacité** (face couleur de la barre d'outils, touche **Tab**). L'échelle est logarithmique, de 0,05 % à 100 %, et la valeur s'affiche en pourcentage. Double-clic pour saisir une valeur exacte, molette pour l'ajuster finement. L'ancien curseur sautait de 3 en 3 sur 255 valeurs et ne permettait pas d'atteindre 1/255.
+- **Affichage → Rendu exact**. L'écran classique compose les couches en 8 bits. Avec des opacités très faibles, l'accumulation y plafonne et la teinte dérive : par exemple, du rouge à 1/255 s'arrête au rose (255,127,127). Le rendu exact calcule en virgule flottante : des milliers de couches s'accumulent pleinement, jusqu'à la couleur choisie. C'est aussi le résultat décrit par le SVG exporté.
+- **Exporter → PNG 16 bits (rendu exact)** : l'image du rendu exact, sans arrondi 8 bits.
+- **Export SVG** : l'opacité de chaque forme est écrite exactement (`fill-opacity="0.004"`), et non arrondie à 1/255. Les formes sont regroupées par geste (un groupe par appui-relâchement) et par tampon. Le fichier est donc facile à retravailler dans Inkscape ou Illustrator. Attention : à ces opacités, les logiciels qui affichent le SVG calculent eux aussi en 8 bits et plafonnent chacun à leur façon. La référence fidèle est le rendu exact.
+- L'opacité fine (sous 1/255) n'apparaît pleinement que dans le rendu exact, l'export SVG et le PNG 16 bits. À l'écran classique, une forme visible garde au minimum 1/255.
 
 ## Compiler
 
@@ -41,7 +53,12 @@ Chaque push déclenche le workflow GitHub Actions `Build macOS app`, qui produit
 - Mémoire disponible portée à 50 % de la RAM, pour les compositions de plusieurs milliers de formes.
 - Module **Evolve Shapes** inclus : il était dans les sources mais pas dans la release 008.
 
-Limite connue : la pression des tablettes graphiques (JPen) ne fonctionne pas sur Apple Silicon. La souris et le trackpad fonctionnent normalement.
+- 8.2 : curseur d'opacité logarithmique et opacité fine, rendu exact, PNG 16 bits, export SVG exact et groupé, tampons SVG, illustrations entières, couleurs d'origine, palette aléatoire ColourLovers en https.
+
+Limites connues :
+- La pression des tablettes graphiques (JPen) ne fonctionne pas sur Apple Silicon. La souris et le trackpad fonctionnent normalement.
+- La pipette de la face couleur lit l'écran : au premier usage, macOS demande l'autorisation **Enregistrement de l'écran** pour Alchemy.
+- L'export PDF reste en opacités 8 bits, comme dans la version 008.
 
 ----
 

@@ -9,7 +9,7 @@ plugins {
     id 'java'
 }
 
-version = '8.1.0'
+version = '8.2.0'
 
 def javaRelease = 21
 
@@ -58,6 +58,8 @@ jar {
     manifest {
         attributes(
                 'Main-Class': 'org.alchemy.core.Alchemy',
+                'Implementation-Title': 'Alchemy',
+                'Implementation-Version': project.version,
                 'Class-Path': runtimeLibs.files.collect { 'lib/' + it.name }.sort().join(' ')
         )
     }
