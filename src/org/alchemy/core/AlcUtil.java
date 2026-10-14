@@ -471,10 +471,15 @@ public class AlcUtil implements AlcConstants {
             }
 
             int totalCommands = pdfPage.getCommandCount();
+            // Follow the colors so each shape remembers its original look
+            AlcPdfImport.State pdfState = new AlcPdfImport.State();
 
             try {
                 for (int c = 0; c < totalCommands; c++) {
                     PDFCmd command = pdfPage.getCommand(c);
+                    if (!(command instanceof PDFShapeCmd)) {
+                        pdfState.update(command);
+                    }
                     if (command instanceof PDFShapeCmd) {
                         PDFShapeCmd shapeCommand = (PDFShapeCmd) command;
 
@@ -528,6 +533,7 @@ public class AlcUtil implements AlcConstants {
                                 } else {
                                     shape.setStyle(style);
                                 }
+                                pdfState.applySource(shape, style == STYLE_BOTH ? STYLE_FILL : style, 1);
                                 shapeList.add(shape);
                             }
                         }
@@ -1095,5 +1101,24 @@ public class AlcUtil implements AlcConstants {
         for (int i = 0; i < array.length; i++) {
             System.out.println("Array [" + String.valueOf(i) + "] = " + array[i]);
         }
+    }
+
+    /** Convert an exact opacity (0-1) to the 8-bit alpha used on screen.
+     *  A visible opacity never rounds down to an invisible alpha of 0 */
+    public static int opacityToAlpha(float opacity) {
+        if (opacity <= 0f) {
+            return 0;
+        }
+        return Math.max(1, Math.min(255, Math.round(opacity * 255f)));
+    }
+
+    /** Read the shapes of an SVG file (stamps), with their original look */
+    public static java.util.List<AlcShape> getSVGShapes(File file) {
+        return AlcSvgImport.read(file);
+    }
+
+    /** Read each page of a PDF as a whole illustration (stamps), with the original look of its shapes */
+    public static java.util.List<java.util.List<AlcShape>> getPDFIllustrations(File file) {
+        return AlcPdfImport.readIllustrations(file);
     }
 }

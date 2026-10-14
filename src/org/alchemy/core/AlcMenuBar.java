@@ -269,6 +269,20 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         transparentItem.setup(transparentTitle, transparentKey);
         viewMenu.add(transparentItem);
 
+        // Exact render: composite the layers in high precision
+        AbstractAction exactRenderAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                AlcCheckBoxMenuItem source = (AlcCheckBoxMenuItem) e.getSource();
+                Alchemy.canvas.setExactRender(source.getState());
+            }
+        };
+        AlcCheckBoxMenuItem exactRenderItem = new AlcCheckBoxMenuItem(exactRenderAction);
+        exactRenderItem.setup(getS("exactRenderTitle"));
+        exactRenderItem.setToolTipText(getS("exactRenderDescription"));
+        exactRenderItem.setState(Alchemy.canvas.isExactRender());
+        viewMenu.add(exactRenderItem);
+
         viewMenu.add(new JSeparator());
 
         // Load Background Image
@@ -844,6 +858,7 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         fc.setAcceptAllFileFilterUsed(false);
 //        fc.setFileFilter(new ExportFileFilter("PNG - Transparent"));
         fc.setFileFilter(new ExportFileFilter("PNG"));
+        fc.setFileFilter(new ExportFileFilter(getS("exportPng16Title")));
         fc.setFileFilter(new ExportFileFilter("JPG"));
 //        fc.setFileFilter(new ExportFileFilter("GIF"));
         fc.setFileFilter(new ExportFileFilter("PDF"));
@@ -861,7 +876,20 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             }
             String format = fc.getFileFilter().getDescription();
 
-            if (format.equals("PDF")) {
+            if (format.equals(getS("exportPng16Title"))) {
+                // 16 bits per channel PNG of the high precision render
+                if (!file.getName().toLowerCase().endsWith(".png")) {
+                    file = new File(file.getPath() + ".png");
+                }
+                try {
+                    Alchemy.canvas.setGuide(false);
+                    javax.imageio.ImageIO.write(Alchemy.canvas.renderExact().toImage16(), "png", file);
+                } catch (IOException ex) {
+                    System.err.println(ex);
+                } finally {
+                    Alchemy.canvas.setGuide(true);
+                }
+            } else if (format.equals("PDF")) {
                 Alchemy.session.saveSinglePdf(file);
             } else if (format.equals("SVG")) {
                 Alchemy.session.saveSVG(file);

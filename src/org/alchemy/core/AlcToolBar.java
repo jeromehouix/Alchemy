@@ -76,7 +76,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     /** Detach toolbar button */ 
     private JButton detachButton;
     /** Transparency slider */
-    private AlcSlider transparencySlider;
+    private AlcOpacitySlider transparencySlider;
     /** Sections within the sub toolbar - either loaded or not */
     private AlcToolBarSubSection[] affectSubToolBarSections;
     /** The create section within the sub toolbar - index of the loaded section */
@@ -385,15 +385,14 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         // TRANSPARENCY SLIDER
         //////////////////////////////////////////////////////////////
         
-        transparencySlider = new AlcSlider(getS("transparencyTitle"), getS("transparencyDescription"), 0, 255, 254);
+        transparencySlider = new AlcOpacitySlider(getS("opacityTitle"), getS("opacityDescription"), Alchemy.canvas.getOpacity());
         transparencySlider.addChangeListener(
                 new ChangeListener() {
 
                     public void stateChanged(ChangeEvent e) {
 
-                        //JSlider source = (JSlider) e.getSource();
                         if (!transparencySlider.getValueIsAdjusting()) {
-                            Alchemy.canvas.setAlpha(transparencySlider.getValue());
+                            Alchemy.canvas.setOpacity(transparencySlider.getOpacity());
                             refreshColorButton();
                             swatchColorButton.refresh();
                         }
@@ -422,12 +421,9 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         
         AbstractAction transparencyUpAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                if(Alchemy.canvas.getAlpha()<255){
-                    if(Alchemy.canvas.getAlpha()>245){
-                        Alchemy.canvas.setAlpha(255);
-                    }else{
-                        Alchemy.canvas.setAlpha(Alchemy.canvas.getAlpha()+10);
-                    }
+                if(Alchemy.canvas.getOpacity()<1f){
+                    // One notch up the logarithmic opacity scale
+                    Alchemy.canvas.setOpacity(AlcOpacitySlider.nudge(Alchemy.canvas.getOpacity(), 1));
                     swatchColorButton.refresh();
                     refreshColorButton();
                 }
@@ -435,12 +431,9 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         };
         AbstractAction transparencyDownAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                if(Alchemy.canvas.getAlpha()>0){
-                    if(Alchemy.canvas.getAlpha()<10){
-                        Alchemy.canvas.setAlpha(0);
-                    }else{
-                        Alchemy.canvas.setAlpha(Alchemy.canvas.getAlpha()-10);
-                    }
+                if(Alchemy.canvas.getOpacity()>0f){
+                    // One notch down the logarithmic opacity scale
+                    Alchemy.canvas.setOpacity(AlcOpacitySlider.nudge(Alchemy.canvas.getOpacity(), -1));
                     swatchColorButton.refresh();
                     refreshColorButton();
                 }
@@ -1484,7 +1477,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
 
     @Override
     void refreshTransparencySlider() {
-        transparencySlider.setValue(Alchemy.canvas.getAlpha());
+        transparencySlider.setOpacity(Alchemy.canvas.getOpacity());
     }
     
     /** updates the swatch move color l/r buttons */
