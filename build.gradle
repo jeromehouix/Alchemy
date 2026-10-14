@@ -150,22 +150,24 @@ tasks.register('runDist', JavaExec) {
 // --------------------------------------------------------------------------
 // Native application with an embedded Java runtime (jpackage)
 // --------------------------------------------------------------------------
-tasks.register('jpackage', Exec) {
+def isMac = org.gradle.internal.os.OperatingSystem.current().isMacOsX()
+def imageDir = layout.buildDirectory.dir('jpackage-image').get().asFile
+def packageDir = layout.buildDirectory.dir('jpackage').get().asFile
+
+// Step 1: the application itself (.app on macOS)
+tasks.register('jpackageImage', Exec) {
     group = 'distribution'
-    description = 'Build a native application (.dmg on macOS, app image elsewhere)'
+    description = 'Build the native application image with an embedded Java runtime'
     dependsOn 'dist'
 
-    def isMac = org.gradle.internal.os.OperatingSystem.current().isMacOsX()
-    def outDir = layout.buildDirectory.dir('jpackage').get().asFile
-
     doFirst {
-        project.delete(outDir)
+        project.delete(imageDir)
     }
 
     def javaHome = System.getProperty('java.home')
     def args = [
             "${javaHome}/bin/jpackage",
-            '--type', isMac ? 'dmg' : 'app-image',
+            '--type', 'app-image',
             '--name', 'Alchemy',
             '--app-version', project.version,
             '--vendor', 'Alchemy',
@@ -173,7 +175,7 @@ tasks.register('jpackage', Exec) {
             '--input', distDir.get().asFile.path,
             '--main-jar', 'Alchemy.jar',
             '--main-class', 'org.alchemy.core.Alchemy',
-            '--dest', outDir.path,
+            '--dest', imageDir.path,
             // Tells Alchemy where modules/, shapes/ and the manual are
             '--java-options', '-Dalchemy.home=$APPDIR',
             // Room for compositions made of thousands of shapes
@@ -187,4 +189,44 @@ tasks.register('jpackage', Exec) {
         ]
     }
     commandLine args
+}
+
+// Step 2 (macOS): declare the microphone use, without which macOS refuses the
+// microphone to the Mic modules, then sign the application again (ad hoc)
+tasks.register('macMicrophone', Exec) {
+    group = 'distribution'
+    description = 'Declare the microphone use in the macOS application'
+    dependsOn 'jpackageImage'
+    onlyIf { isMac }
+    def app = new File(imageDir, 'Alchemy.app')
+    def plist = new File(app, 'Contents/Info.plist').path
+    def text = 'Alchemy uses the microphone for the modules that draw with the voice (Mic Shapes, Mic Expand).'
+    commandLine 'sh', '-c',
+            "/usr/libexec/PlistBuddy -c \"Add :NSMicrophoneUsageDescription string ${text}\" \"${plist}\" " +
+            "|| /usr/libexec/PlistBuddy -c \"Set :NSMicrophoneUsageDescription ${text}\" \"${plist}\"; " +
+            "codesign --force --deep --sign - \"${app.path}\""
+}
+
+// Step 3: the installer (.dmg on macOS); elsewhere the application image itself
+tasks.register('jpackage', Exec) {
+    group = 'distribution'
+    description = 'Build a native application (.dmg on macOS, app image elsewhere)'
+    dependsOn 'macMicrophone'
+
+    doFirst {
+        project.delete(packageDir)
+    }
+
+    def javaHome = System.getProperty('java.home')
+    if (isMac) {
+        commandLine "${javaHome}/bin/jpackage",
+                '--type', 'dmg',
+                '--name', 'Alchemy',
+                '--app-version', project.version,
+                '--vendor', 'Alchemy',
+                '--app-image', new File(imageDir, 'Alchemy.app').path,
+                '--dest', packageDir.path
+    } else {
+        commandLine 'cp', '-R', imageDir.path, packageDir.path
+    }
 }
