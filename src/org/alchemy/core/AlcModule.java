@@ -156,6 +156,47 @@ public abstract class AlcModule implements AlcConstants {
         return this.moduleName;
     }
 
+    /** Key of the module in the language bundle: module.ClassName */
+    String bundleKey() {
+        return "module." + getClass().getSimpleName();
+    }
+
+    /** Name of the module in the language of the interface */
+    String getDisplayName() {
+        return text(bundleKey(), getName());
+    }
+
+    /** Description of the module in the language of the interface */
+    String getDisplayDescription() {
+        return text(bundleKey() + ".description", getDescription());
+    }
+
+    private static String text(String key, String fallback) {
+        try {
+            if (bundle != null && bundle.containsKey(key)) {
+                return bundle.getString(key);
+            }
+        } catch (Exception e) {
+            // Not translated
+        }
+        return fallback;
+    }
+
+    /**
+     * A text of the module interface in the language of Alchemy.
+     * The English text is the key: "Line Weight" is looked up as
+     * {@code m.Line_Weight}; without a translation the English text is used.
+     * @param english   The text in English
+     * @return          The translated text
+     */
+    protected static String tr(String english) {
+        if (english == null) {
+            return null;
+        }
+        String key = "m." + english.trim().replaceAll("[^A-Za-z0-9]+", "_").replaceAll("^_|_$", "");
+        return text(key, english);
+    }
+
     void setName(String moduleName) {
         this.moduleName = moduleName;
     }

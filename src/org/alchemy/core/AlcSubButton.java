@@ -27,10 +27,12 @@ import javax.swing.*;
 public class AlcSubButton extends JButton implements AlcConstants {
 
     public AlcSubButton(String text) {
+        text = AlcModule.tr(text);
         setup(text);
     }
 
     public AlcSubButton(String text, URL iconUrl) {
+        text = AlcModule.tr(text);
 
         if (iconUrl != null) {
             // Set the main icon
@@ -55,5 +57,11 @@ public class AlcSubButton extends JButton implements AlcConstants {
         this.setContentAreaFilled(false);  // Draw the background behind the button
     //this.setPreferredSize(new Dimension(this.getPreferredSize().width, 26));
     //this.setFocusPainted(false);       // Draw the highlight when focused
+    }
+
+    /** Tooltips of the modules are translated (see AlcModule.tr) */
+    @Override
+    public void setToolTipText(String text) {
+        super.setToolTipText(AlcModule.tr(text));
     }
 }

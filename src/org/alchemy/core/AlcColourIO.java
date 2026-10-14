@@ -86,7 +86,7 @@ public class AlcColourIO implements AlcConstants{
         private String authorString;
         private String urlString;
         
-        JLabel loadingText = new JLabel("Fetching Palette from Colourlovers.com...");
+        JLabel loadingText = new JLabel(AlcModule.tr("Fetching Palette from Colourlovers.com..."));
         JLabel colorHeading = new JLabel(getS("swatchRetrieved"));
         JLabel colorAuthor = new JLabel();
         JLabel colorTitle = new JLabel();

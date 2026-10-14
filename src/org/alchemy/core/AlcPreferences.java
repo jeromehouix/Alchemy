@@ -1070,7 +1070,8 @@ class AlcPreferences implements AlcConstants {
             AlcModule currentModule = modules[i];
             String moduleName = currentModule.getName();
             final String moduleNodeName = modulePrefix + moduleName;
-            final JCheckBox checkBox = new JCheckBox(moduleName);
+            final JCheckBox checkBox = new JCheckBox(currentModule.getDisplayName());
+            checkBox.setToolTipText(currentModule.getDisplayDescription());
             if (!AlcTheme.isModern()) {
                 checkBox.setBackground(COLOR_UI_START);
             }

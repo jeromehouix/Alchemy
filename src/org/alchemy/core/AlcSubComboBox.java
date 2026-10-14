@@ -77,4 +77,10 @@ public class AlcSubComboBox extends JPanel implements AlcConstants {
     public int getSelectedIndex() {
         return comboBox.getSelectedIndex();
     }
+
+    /** Tooltips of the modules are translated (see AlcModule.tr) */
+    @Override
+    public void setToolTipText(String text) {
+        super.setToolTipText(AlcModule.tr(text));
+    }
 }

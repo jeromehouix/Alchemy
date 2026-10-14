@@ -219,7 +219,9 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         copyItem.setup(getS("copyTitle"), copyKey);
         editMenu.add(copyItem);
 
-        editMenu.add(forwardItem("clearTitle"));
+        AlcMenuItem clearItem = forwardItem("clearTitle");
+        clearItem.setText(getS("clearDescription"));
+        editMenu.add(clearItem);
 
         editMenu.add(new JSeparator());
 

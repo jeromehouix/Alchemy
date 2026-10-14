@@ -36,6 +36,7 @@ public class AlcSubSpinner extends AlcAbstractSpinner {
      * @param step      The step size to increment with
      */
     public AlcSubSpinner(String title, int min, int max, int value, int step) {
+        title = AlcModule.tr(title);
 
         this.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
         this.setOpaque(false);
@@ -52,4 +53,10 @@ public class AlcSubSpinner extends AlcAbstractSpinner {
 
     }
     
+
+    /** Tooltips of the modules are translated (see AlcModule.tr) */
+    @Override
+    public void setToolTipText(String text) {
+        super.setToolTipText(AlcModule.tr(text));
+    }
 }

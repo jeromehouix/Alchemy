@@ -36,6 +36,7 @@ public class AlcSubSlider extends JPanel implements AlcConstants {
      * @param value    The start value of the slider
      */
     public AlcSubSlider(String title, int min, int max, int value) {
+        title = AlcModule.tr(title);
 
         // Top Left Bottom Right
         this.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
@@ -98,5 +99,11 @@ public class AlcSubSlider extends JPanel implements AlcConstants {
      */
     public void removeChangeListener(ChangeListener listener) {
         slider.removeChangeListener(listener);
+    }
+
+    /** Tooltips of the modules are translated (see AlcModule.tr) */
+    @Override
+    public void setToolTipText(String text) {
+        super.setToolTipText(AlcModule.tr(text));
     }
 }

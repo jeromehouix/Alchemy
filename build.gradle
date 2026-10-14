@@ -202,10 +202,17 @@ tasks.register('macMicrophone', Exec) {
     onlyIf { isMac }
     def app = new File(imageDir, 'Alchemy.app')
     def plist = new File(app, 'Contents/Info.plist').path
-    def text = 'Alchemy uses the microphone for the modules that draw with the voice (Mic Shapes, Mic Expand).'
+    def text = 'Alchemy utilise le micro pour les modules qui dessinent avec le son (Formes micro, Gonfler au micro).'
     commandLine 'sh', '-c',
             "/usr/libexec/PlistBuddy -c \"Add :NSMicrophoneUsageDescription string ${text}\" \"${plist}\" " +
             "|| /usr/libexec/PlistBuddy -c \"Set :NSMicrophoneUsageDescription ${text}\" \"${plist}\"; " +
+            // The languages of the interface, so macOS gives the app the language of the system
+            "/usr/libexec/PlistBuddy -c \"Delete :CFBundleLocalizations\" \"${plist}\" 2>/dev/null; " +
+            "/usr/libexec/PlistBuddy -c \"Add :CFBundleLocalizations array\" \"${plist}\"; " +
+            ['en', 'fr', 'de', 'es', 'fa', 'fi', 'it', 'ja', 'nl', 'no', 'pl', 'pt', 'ru', 'tr', 'uk', 'zh'].collect {
+                "/usr/libexec/PlistBuddy -c \"Add :CFBundleLocalizations: string ${it}\" \"${plist}\"; "
+            }.join('') +
+            "/usr/libexec/PlistBuddy -c \"Add :CFBundleAllowMixedLocalizations bool true\" \"${plist}\" 2>/dev/null; " +
             "codesign --force --deep --sign - \"${app.path}\""
 }
 

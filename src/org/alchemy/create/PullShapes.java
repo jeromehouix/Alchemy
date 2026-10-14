@@ -101,7 +101,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
 
         // Reload
         AlcSubButton reloadButton = new AlcSubButton("Reload", AlcUtil.getUrlPath("reload.png", getClassLoader()));
-        reloadButton.setToolTipText("Reload the stamps (PDF and SVG files) from the shapes folder: " + AlcPaths.shapesDir());
+        reloadButton.setToolTipText(tr("Reload the stamps (PDF and SVG files) from the shapes folder:") + " " + AlcPaths.shapesDir());
         reloadButton.addActionListener(
                 new ActionListener() {
 
@@ -125,7 +125,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
 
         // Show the stamps folder in the Finder / file manager
         AlcSubButton openButton = new AlcSubButton("Open", AlcUtil.getUrlPath("folder.png", getClassLoader()));
-        openButton.setToolTipText("Open the stamps folder: " + AlcPaths.shapesDir());
+        openButton.setToolTipText(tr("Open the stamps folder:") + " " + AlcPaths.shapesDir());
         openButton.addActionListener(
                 new ActionListener() {
 
@@ -133,7 +133,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
                         try {
                             Desktop.getDesktop().open(AlcPaths.shapesDir());
                         } catch (Exception ex) {
-                            JOptionPane.showMessageDialog(null, "The stamps folder is:\n" + AlcPaths.shapesDir());
+                            JOptionPane.showMessageDialog(null, tr("The stamps folder is:") + "\n" + AlcPaths.shapesDir());
                         }
                     }
                 });
@@ -300,7 +300,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
             hasFolders = true;
             // Add an extra slot for 'ALL' shapes
             folderNames = new String[folders.length + 1];
-            folderNames[0] = "All Shapes";
+            folderNames[0] = tr("All Shapes");
             for (int i = 0; i < folders.length; i++) {
                 File[] files = AlcUtil.listFilesAsArray(folders[i], stampFilter, true);
                 java.util.Arrays.sort(files);
@@ -309,7 +309,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
                 loadFiles(files, folderPieces, folderWholes);
                 pieces.add(folderPieces);
                 wholes.add(folderWholes);
-                folderNames[i + 1] = folders[i].getName() + " Folder";
+                folderNames[i + 1] = folders[i].getName();
             }
         }
 
@@ -357,7 +357,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
     public void importStamps() {
         File shapesDir = AlcPaths.shapesDir();
         // 1. The files
-        FileDialog chooser = new FileDialog((Frame) null, "Add stamps (PDF or SVG)", FileDialog.LOAD);
+        FileDialog chooser = new FileDialog((Frame) null, tr("Add stamps (PDF or SVG)"), FileDialog.LOAD);
         chooser.setMultipleMode(true);
         chooser.setFilenameFilter(new FilenameFilter() {
 
@@ -377,13 +377,13 @@ public class PullShapes extends AlcModule implements AlcConstants {
         }
         if (stamps.isEmpty()) {
             if (files.length > 0) {
-                JOptionPane.showMessageDialog(null, "Only PDF and SVG files can be used as stamps.");
+                JOptionPane.showMessageDialog(null, tr("Only PDF and SVG files can be used as stamps."));
             }
             return;
         }
 
         // 2. The destination: the selected folder by default, or a new one
-        String newFolder = "New folder...";
+        String newFolder = tr("New folder...");
         java.util.List<String> choices = new ArrayList<String>();
         for (File folder : folderFiles) {
             choices.add(folder.getName());
@@ -397,14 +397,14 @@ public class PullShapes extends AlcModule implements AlcConstants {
             preselected = folderFiles[0].getName();
         }
         Object choice = JOptionPane.showInputDialog(null,
-                stamps.size() + (stamps.size() > 1 ? " files" : " file") + " to add. Folder of stamps:",
-                "Add stamps", JOptionPane.PLAIN_MESSAGE, null, choices.toArray(), preselected);
+                stamps.size() + " " + (stamps.size() > 1 ? tr("files to add. Folder of stamps:") : tr("file to add. Folder of stamps:")),
+                tr("Add stamps"), JOptionPane.PLAIN_MESSAGE, null, choices.toArray(), preselected);
         if (choice == null) {
             return;
         }
         File destination;
         if (choice.equals(newFolder)) {
-            String name = JOptionPane.showInputDialog(null, "Name of the new folder:", "Add stamps", JOptionPane.PLAIN_MESSAGE);
+            String name = JOptionPane.showInputDialog(null, tr("Name of the new folder:"), tr("Add stamps"), JOptionPane.PLAIN_MESSAGE);
             if (name == null || name.trim().isEmpty()) {
                 return;
             }
@@ -417,11 +417,11 @@ public class PullShapes extends AlcModule implements AlcConstants {
         try {
             java.util.List<String> unreadable = importFiles(stamps, destination);
             if (!unreadable.isEmpty()) {
-                JOptionPane.showMessageDialog(null, stamps.size() + " file(s) added to " + destination.getName()
-                        + ".\nNo shape could be read from: " + String.join(", ", unreadable));
+                JOptionPane.showMessageDialog(null, stamps.size() + " " + tr("file(s) added to") + " " + destination.getName()
+                        + ".\n" + tr("No shape could be read from:") + " " + String.join(", ", unreadable));
             }
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(null, "Could not copy the files into " + destination + ":\n" + ex.getMessage());
+            JOptionPane.showMessageDialog(null, tr("Could not copy the files into") + " " + destination + ":\n" + ex.getMessage());
         }
     }
 

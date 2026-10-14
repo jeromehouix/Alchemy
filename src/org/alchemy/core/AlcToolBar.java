@@ -857,15 +857,15 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
 
                 // The first 9 modules are mapped to keys 1 - 9
                 if (createCount < 9) {
-                    Alchemy.shortcuts.setShortcut(createMenuItem, zero + createCount + 1, currentModule.getName(), createMenuItemAction);
+                    Alchemy.shortcuts.setShortcut(createMenuItem, zero + createCount + 1, currentModule.bundleKey(), createMenuItemAction);
 
                 // The 10th module is mapped to the 0 key
                 } else if (createCount == 9) {
-                    Alchemy.shortcuts.setShortcut(createMenuItem, zero, currentModule.getName(), createMenuItemAction);
+                    Alchemy.shortcuts.setShortcut(createMenuItem, zero, currentModule.bundleKey(), createMenuItemAction);
 
                 // The next 9 modules are mapped to keys 1 - 9 with the ALT key
                 } else if (createCount > 9) {
-                    Alchemy.shortcuts.setShortcut(createMenuItem, zero + (createCount - 9), currentModule.getName(), createMenuItemAction, KeyEvent.ALT_MASK);
+                    Alchemy.shortcuts.setShortcut(createMenuItem, zero + (createCount - 9), currentModule.bundleKey(), createMenuItemAction, KeyEvent.ALT_MASK);
                 }
                 createCount++;
             }
@@ -927,13 +927,13 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
 
                     // Range from 0 - 8 mapped to keys 1 - 9
                     if (affectCount < 9) {
-                        Alchemy.shortcuts.setShortcut(affectMenuItem, zero + affectCount + 1, currentModule.getName(), affectMenuItemAction, KEY_MODIFIER);
+                        Alchemy.shortcuts.setShortcut(affectMenuItem, zero + affectCount + 1, currentModule.bundleKey(), affectMenuItemAction, KEY_MODIFIER);
                     // The 10th module is mapped to the 0 key
                     } else if (affectCount == 9) {
-                        Alchemy.shortcuts.setShortcut(affectMenuItem, zero, currentModule.getName(), affectMenuItemAction, KEY_MODIFIER);
+                        Alchemy.shortcuts.setShortcut(affectMenuItem, zero, currentModule.bundleKey(), affectMenuItemAction, KEY_MODIFIER);
                     // The next 9 modules are mapped to keys 1 - 9 with the SHIFT key
                     } else if (affectCount > 9) {
-                        Alchemy.shortcuts.setShortcut(affectMenuItem, zero + (affectCount - 9), currentModule.getName(), affectMenuItemAction, KeyEvent.SHIFT_MASK);
+                        Alchemy.shortcuts.setShortcut(affectMenuItem, zero + (affectCount - 9), currentModule.bundleKey(), affectMenuItemAction, KeyEvent.SHIFT_MASK);
                     }
                     affectCount++;
                 }
@@ -1051,7 +1051,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         detachButton = new JButton(AlcUtil.getImageIcon("palette-detach.png"));
         detachButton.setRolloverIcon(AlcUtil.getImageIcon("palette-detach-over.png"));
         detachButton.setToolTipText(
-                "Detach the toolbar to a seperate palette");
+                AlcModule.tr("Detach the toolbar to a seperate palette"));
 
         // Compensate for the windows border
         if (Alchemy.OS == OS_MAC) {

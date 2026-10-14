@@ -65,9 +65,9 @@ class AlcRadioButtonMenuItem extends JRadioButtonMenuItem implements AlcShortcut
     }
 
     void setup(AlcModule module) {
-        setup(module.getIndex(), module.getName());
+        setup(module.getIndex(), module.getDisplayName());
         this.moduleType = module.getModuleType();
-        this.toolTip = module.getDescription();
+        this.toolTip = module.getDisplayDescription();
         this.setToolTipText(toolTip);
         // Set the intial state to false
         //this.setState(true);
