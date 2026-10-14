@@ -1,3 +1,52 @@
+# Alchemy — reprise (fork)
+
+Fork de [karldd/Alchemy](https://github.com/karldd/Alchemy), qui n'est plus maintenu depuis 2017.
+Objectif : faire tourner Alchemy sur les machines actuelles, Mac Apple Silicon compris, **sans changer son rendu**.
+Le moteur de dessin, les modules et l'export SVG/PDF sont ceux de la version 008.
+
+## Installer sur Mac (Apple Silicon)
+
+1. Télécharger `Alchemy-<version>.dmg` depuis les [releases](../../releases), ou depuis l'onglet **Actions** (artefact `Alchemy-macOS-arm64` du dernier build).
+2. Ouvrir le `.dmg` et glisser **Alchemy** dans **Applications**. Java est intégré à l'application, il n'y a rien d'autre à installer.
+3. L'application n'est pas signée par Apple. Au premier lancement, macOS la bloque. Il faut alors aller dans **Réglages Système → Confidentialité et sécurité** et cliquer sur **Ouvrir quand même**. Autre solution, dans le Terminal :
+   ```
+   xattr -dr com.apple.quarantine /Applications/Alchemy.app
+   ```
+
+## Tampons (Pull Shapes)
+
+Les tampons sont lus dans **`~/Documents/Alchemy/shapes`**. Ce dossier est créé au premier lancement avec les tampons fournis (Bones, Circles, Parts, Tanagram).
+- Chaque **fichier PDF** y devient une source de formes, et chaque **sous-dossier** une catégorie.
+- Seuls les contours vectoriels sont repris. Les tampons prennent la couleur et la transparence choisies dans Alchemy.
+
+## Compiler
+
+Il faut Java 21 ou plus récent.
+
+```
+./gradlew runDist     # compile et lance Alchemy
+./gradlew dist        # assemble build/dist/Alchemy (jar, lib, modules, shapes)
+./gradlew jpackage    # application native avec Java intégré (.dmg sur macOS)
+```
+
+Chaque push déclenche le workflow GitHub Actions `Build macOS app`, qui produit le `.dmg` arm64. Pousser un tag `v*` (par exemple `v8.1.0`) le publie aussi en release.
+
+## Changements par rapport à la version 008
+
+- Build Gradle à la place de Ant/NetBeans, sources en UTF-8, Java 21.
+- Application macOS native arm64 avec Java intégré (jpackage).
+- Les dossiers `modules`, `shapes` et le manuel sont trouvés quel que soit le dossier de lancement (propriété `alchemy.home`).
+- Menus « À propos », « Préférences » et « Quitter » de macOS branchés sur l'API standard `java.awt.Desktop` : l'ancien `OSXAdapter` reposait sur `com.apple.eawt`, supprimé de Java.
+- Apparence Mac native à la place de Quaqua, qui ne fonctionne plus.
+- Mémoire disponible portée à 50 % de la RAM, pour les compositions de plusieurs milliers de formes.
+- Module **Evolve Shapes** inclus : il était dans les sources mais pas dans la release 008.
+
+Limite connue : la pression des tablettes graphiques (JPen) ne fonctionne pas sur Apple Silicon. La souris et le trackpad fonctionnent normalement.
+
+----
+
+*README d'origine :*
+
 # UPDATE - Alchemy is no longer maintained.
 This repository is for archival purposes.
 

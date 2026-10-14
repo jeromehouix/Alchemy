@@ -1,0 +1,43 @@
+name: Build macOS app
+
+# Builds Alchemy.dmg for Apple Silicon (arm64) with an embedded Java runtime.
+# - every push / pull request: the .dmg is attached to the run as an artifact
+# - pushing a tag like v8.1.0: the .dmg is also published as a GitHub release
+
+on:
+  push:
+    branches: [master, modernisation]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos-arm64:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the .dmg
+        run: ./gradlew jpackage --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Alchemy-macOS-arm64
+          path: build/jpackage/*.dmg
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/jpackage/*.dmg
