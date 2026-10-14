@@ -314,6 +314,54 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
 
         viewMenu.add(new JSeparator());
 
+        // Zoom: the view only, the drawing and its exports do not change
+        AbstractAction zoomInAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                Alchemy.canvas.zoomCentered(1.25);
+            }
+        };
+        AlcMenuItem zoomInItem = new AlcMenuItem(zoomInAction);
+        int zoomInKey = Alchemy.shortcuts.setShortcut(zoomInItem, KeyEvent.VK_EQUALS, "zoomInTitle", zoomInAction, KEY_MODIFIER);
+        zoomInItem.setup(getS("zoomInTitle"), zoomInKey);
+        viewMenu.add(zoomInItem);
+
+        AbstractAction zoomOutAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                Alchemy.canvas.zoomCentered(1 / 1.25);
+            }
+        };
+        AlcMenuItem zoomOutItem = new AlcMenuItem(zoomOutAction);
+        int zoomOutKey = Alchemy.shortcuts.setShortcut(zoomOutItem, KeyEvent.VK_MINUS, "zoomOutTitle", zoomOutAction, KEY_MODIFIER);
+        zoomOutItem.setup(getS("zoomOutTitle"), zoomOutKey);
+        viewMenu.add(zoomOutItem);
+
+        AbstractAction zoomResetAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                Alchemy.canvas.resetView();
+            }
+        };
+        AlcMenuItem zoomResetItem = new AlcMenuItem(zoomResetAction);
+        int zoomResetKey = Alchemy.shortcuts.setShortcut(zoomResetItem, KeyEvent.VK_0, "zoomResetTitle", zoomResetAction, KEY_MODIFIER | KeyEvent.SHIFT_MASK);
+        zoomResetItem.setup(getS("zoomResetTitle"), zoomResetKey);
+        zoomResetItem.setAccelerator(KeyStroke.getKeyStroke(zoomResetKey, KEY_MODIFIER | KeyEvent.SHIFT_MASK));
+        viewMenu.add(zoomResetItem);
+
+        // Other keyboards: + and - of the numeric keypad, Cmd Shift = (Cmd +)
+        for (JRootPane root : new JRootPane[]{Alchemy.window.getRootPane(), Alchemy.palette.getRootPane()}) {
+            InputMap map = root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, KEY_MODIFIER), "zoomInExtra");
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, KEY_MODIFIER), "zoomInExtra");
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, KEY_MODIFIER | KeyEvent.SHIFT_MASK), "zoomInExtra");
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, KEY_MODIFIER), "zoomOutExtra");
+            root.getActionMap().put("zoomInExtra", zoomInAction);
+            root.getActionMap().put("zoomOutExtra", zoomOutAction);
+        }
+
+        viewMenu.add(new JSeparator());
+
         // Load Background Image
         String loadBackgroundImageTitle = getS("loadBackgroundImageTitle");
         AlcMenuItem loadBackgroundImageItem = new AlcMenuItem(loadBackgroundImageTitle);

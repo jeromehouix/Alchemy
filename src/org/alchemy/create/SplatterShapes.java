@@ -144,8 +144,8 @@ public class SplatterShapes extends AlcModule {
 
     @Override
     public void mousePressed(MouseEvent e) {
-        start = new Point2D.Float(e.getX(), e.getY());
-        end = new Point2D.Float(e.getX(), e.getY());
+        start = point(e);
+        end = point(e);
     }
 
     @Override
@@ -156,7 +156,7 @@ public class SplatterShapes extends AlcModule {
                 ((end.y - start.y) * (1F + midPointPush)) + start.y);
 
         start = end;
-        end = new Point2D.Float(e.getX(), e.getY());
+        end = point(e);
 
         float distance = (float) Math.sqrt(Math.pow((end.x - start.x), 2) + Math.pow((end.y - start.y), 2));
         // Avoid INFINITY

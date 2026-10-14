@@ -19,6 +19,8 @@
  */
 package org.alchemy.core;
 
+import java.awt.geom.Point2D;
+
 import java.awt.event.MouseEvent;
 import java.awt.event.KeyEvent;
 import java.net.URL;
@@ -274,6 +276,16 @@ public abstract class AlcModule implements AlcConstants {
     //////////////////////////////////////////////////////////////
     // MOUSE EVENTS
     //////////////////////////////////////////////////////////////
+    /**
+     * Precise position of a mouse event on the canvas, in canvas coordinates.
+     * When the view is zoomed in, it is finer than a canvas pixel.
+     * @param e Mouse event received by the module
+     * @return  The position as floats
+     */
+    protected static Point2D.Float point(MouseEvent e) {
+        return canvas.getDocPoint(e);
+    }
+
     /**
      * Called when the mouse is pressed, only if the module is active.
      * @param e The {@link MouseEvent} containing location data.   

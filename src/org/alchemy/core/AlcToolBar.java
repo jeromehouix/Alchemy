@@ -957,9 +957,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
             public void actionPerformed(ActionEvent e) {
                 // quick-key used
                 if (!e.getSource().getClass().getName().endsWith("AlcToggleButton")) {               
-                    if(Alchemy.canvas.zoomCanvas(true)){
-                        zoomButton.setSelected(!zoomButton.isSelected());
-                    }
+                    Alchemy.canvas.zoomCanvas(true);
                 }else{
                     Alchemy.canvas.startZoomMousing();
                     if(zoomButton.isSelected()){
@@ -1625,6 +1623,13 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     @Override
     void setZoomButtonSelected(){
         zoomButton.setSelected(true);
+    }
+
+    /** The zoom button shows if the canvas is zoomed in */
+    void syncZoomButton(boolean zoomed){
+        if (zoomButton != null) {
+            zoomButton.setSelected(zoomed);
+        }
     }
     
     

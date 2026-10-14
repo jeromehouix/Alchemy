@@ -26,6 +26,7 @@ import java.awt.Rectangle;
 import javax.swing.JOptionPane;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.List;
 import java.awt.event.*;
@@ -548,8 +549,9 @@ public class PullShapes extends AlcModule implements AlcConstants {
         }
         // Move it into place
         Rectangle bounds = cloneShape.getBounds();
-        int x = e.getX() - (bounds.width >> 1);
-        int y = e.getY() - (bounds.height >> 1);
+        Point2D.Float p = point(e);
+        double x = p.x - (bounds.width >> 1);
+        double y = p.y - (bounds.height >> 1);
         cloneShape.move(x, y);
 
         cloneShape.setup();
@@ -571,7 +573,8 @@ public class PullShapes extends AlcModule implements AlcConstants {
         float scaleFactor = scale ? math.random(0.1F, size) : 1F;
         double rotation = rotate ? math.random(0.1F, 57.2958F) : 0;
         AffineTransform at = new AffineTransform();
-        at.translate(e.getX(), e.getY());
+        Point2D.Float p = point(e);
+        at.translate(p.x, p.y);
         at.rotate(rotation);
         at.scale(scaleFactor, scaleFactor);
         at.translate(-bounds.getCenterX(), -bounds.getCenterY());

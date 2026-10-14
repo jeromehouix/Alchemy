@@ -9,7 +9,7 @@ plugins {
     id 'java'
 }
 
-version = '8.2.0'
+version = '8.3.0'
 
 def javaRelease = 21
 
@@ -184,6 +184,8 @@ tasks.register('jpackageImage', Exec) {
     if (isMac) {
         args += [
                 '--icon', file('res/Alchemy.icns').path,
+                // Trackpad pinch to zoom (Apple gesture API)
+                '--java-options', '--add-exports=java.desktop/com.apple.eawt.event=ALL-UNNAMED',
                 '--mac-package-identifier', 'io.github.jeromehouix.alchemy',
                 '--mac-package-name', 'Alchemy',
         ]

@@ -44,6 +44,8 @@ final class AlcExactRenderer {
     private Image underImage;
     private Point underImageLocation;
     private boolean smoothing;
+    /** Canvas to display transform (zoom and pan), null for none */
+    private AffineTransform view;
     /** Number of shapes already composited, and the last one, to detect changes */
     private int done = 0;
     private AlcShape lastDone = null;
@@ -63,13 +65,29 @@ final class AlcExactRenderer {
      */
     BufferedImage render(List<AlcShape> shapes, Color bg, Image image, Point imageLocation,
             int w, int h, boolean smooth) {
+        return render(shapes, bg, image, imageLocation, w, h, smooth, null);
+    }
+
+    /**
+     * Render the shapes seen through a view (zoom and pan)
+     *
+     * @param v Canvas to display transform, or null
+     * @return  An 8-bit image of the exact result, for display
+     */
+    BufferedImage render(List<AlcShape> shapes, Color bg, Image image, Point imageLocation,
+            int w, int h, boolean smooth, AffineTransform v) {
+        if (v != null && v.isIdentity()) {
+            v = null;
+        }
         boolean reset = acc == null || w != width || h != height
                 || !bg.equals(background) || image != underImage
                 || (imageLocation != null && !imageLocation.equals(underImageLocation))
                 || smooth != smoothing
+                || !(v == null ? view == null : v.equals(view))
                 || shapes.size() < done
                 || (done > 0 && shapes.get(done - 1) != lastDone);
         if (reset) {
+            view = v == null ? null : new AffineTransform(v);
             reset(bg, image, imageLocation, w, h, smooth);
         }
         for (int i = done; i < shapes.size(); i++) {
@@ -100,6 +118,10 @@ final class AlcExactRenderer {
         g.fillRect(0, 0, width, height);
         if (image != null) {
             Point p = imageLocation != null ? imageLocation : new Point(0, 0);
+            if (view != null) {
+                g.transform(view);
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            }
             g.drawImage(image, p.x, p.y, null);
         }
         g.dispose();
@@ -114,7 +136,7 @@ final class AlcExactRenderer {
 
     /** Composite one shape into the float buffer */
     private void composite(AlcShape shape) {
-        Rectangle changed = composite(acc, width, height, 0, 0, shape, null, smoothing);
+        Rectangle changed = composite(acc, width, height, 0, 0, shape, view, smoothing);
         if (changed != null) {
             dirty = dirty == null ? changed : dirty.union(changed);
         }
@@ -220,7 +242,7 @@ final class AlcExactRenderer {
         return c < 0 ? 0 : (c > 255 ? 255 : c);
     }
 
-    /** The exact result as a 16 bits per channel image, for export */
+    /** The exact result as a 16 bits per channel image, for export (always without view) */
     BufferedImage toImage16() {
         ColorModel cm = new ComponentColorModel(ColorSpace.getInstance(ColorSpace.CS_sRGB),
                 new int[]{16, 16, 16}, false, false, Transparency.OPAQUE, DataBuffer.TYPE_USHORT);

@@ -47,7 +47,7 @@ import jpen.event.PenListener;
  * Stores all shapes created and handles all graphics related stuff<br>
  * Think saving pdfs, printing, and of course displaying! 
  */
-public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, MouseMotionListener, PenListener, Printable {
+public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, MouseMotionListener, MouseWheelListener, PenListener, Printable {
     //////////////////////////////////////////////////////////////
     // GLOBAL SHAPE SETTINGS
     //////////////////////////////////////////////////////////////
@@ -60,6 +60,27 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     /** Display the drawing with the high precision renderer instead of the 8-bit canvas */
     private boolean exactRender = false;
     private final AlcExactRenderer exactRenderer = new AlcExactRenderer();
+    /** Last exact image shown and its view, for the quick preview while zooming */
+    private Image exactImage;
+    private AffineTransform exactImageView;
+    //////////////////////////////////////////////////////////////
+    // VIEW (zoom and pan, the shapes are never modified)
+    //////////////////////////////////////////////////////////////
+    /** Canvas (drawing) to screen transform */
+    private AffineTransform view = new AffineTransform();
+    private AffineTransform viewInverse = new AffineTransform();
+    /** View the canvasImage cache was rendered with */
+    private AffineTransform canvasImageView = new AffineTransform();
+    /** Render the view into the display cache (not into the exports) */
+    private boolean applyViewToRender = false;
+    /** Full render once the zoom or pan pauses */
+    private javax.swing.Timer viewSettleTimer;
+    /** Zoom percentage shown briefly after a change */
+    private long zoomOverlayUntil = 0;
+    static final double MIN_ZOOM = 0.1, MAX_ZOOM = 32;
+    /** Precise canvas position of the mouse event being dispatched to the modules */
+    private final Point2D.Float docPoint = new Point2D.Float();
+    private MouseEvent docEvent;
     /** Counter numbering the gestures, used to group shapes in the SVG export */
     private int gestureCounter = 0;
     private boolean alphaLocked = false;
@@ -104,9 +125,6 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     private boolean zoomMousing = false;
     /** Zoom data */
     private double zoomAmount = 4.0;
-    private double currentZoom = 1/zoomAmount;
-    private double lastZoomX = 0.0;
-    private double lastZoomY = 0.0;
     
     //////////////////////////////////////////////////////////////
     // PEN SETTINGS
@@ -157,13 +175,10 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     private Image canvasImage;
     /** Image than can be drawn on the canvas */
     private BufferedImage image;
-    private BufferedImage zoomedImage;
     /** Display the Image or not */
     private boolean imageDisplay = false;
     /** Position to display the image */
     private Point imageLocation = new Point(0, 0);
-     /** Position to display the zoomed image */
-    private Point zoomedImageLocation = new Point(0, 0);
     /** An image used to fake transparency in fullscreen mode */
     private Image transparentImage;
     //////////////////////////////////////////////////////////////
@@ -205,6 +220,8 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
 
         this.addMouseListener(this);
         this.addMouseMotionListener(this);
+        this.addMouseWheelListener(this);
+        installMagnification();
 
         shapes = new ArrayList<AlcShape>(100);
         shapes.ensureCapacity(100);
@@ -275,17 +292,49 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         }
 
+        // While zooming or panning, the cache rendered for the previous view is scaled
+        boolean settling = viewSettleTimer != null && viewSettleTimer.isRunning();
+        AffineTransform cacheToScreen = null;
+        if (!view.equals(canvasImageView)) {
+            try {
+                cacheToScreen = new AffineTransform(view);
+                cacheToScreen.concatenate(canvasImageView.createInverse());
+            } catch (NoninvertibleTransformException ex) {
+                cacheToScreen = null;
+            }
+        }
+
         // Exact render: the committed shapes are composited in high precision
         boolean exact = exactRender && !Alchemy.window.isTransparent();
         if (exact) {
             boolean showImage = imageDisplay && image != null;
-            g2.drawImage(exactRenderer.render(shapes, bgColor,
-                    showImage ? getImage() : null, showImage ? getImageLocation() : null,
-                    w, h, smoothing), 0, 0, null);
+            if (settling && exactImage != null && exactImageView != null) {
+                // Quick preview of the last exact image during the gesture
+                try {
+                    AffineTransform t = new AffineTransform(view);
+                    t.concatenate(exactImageView.createInverse());
+                    g2.drawImage(exactImage, t, null);
+                } catch (NoninvertibleTransformException ex) {
+                    // Draw nothing until the full render
+                }
+            } else {
+                exactImage = exactRenderer.render(shapes, bgColor,
+                        showImage ? getImage() : null, showImage ? getImageLocation() : null,
+                        w, h, smoothing, view);
+                exactImageView = new AffineTransform(view);
+                g2.drawImage(exactImage, 0, 0, null);
+            }
         // Draw the flattened buffImage
         } else if (canvasImage != null && !drawUnder) {
-            g2.drawImage(canvasImage, 0, 0, null);
+            if (cacheToScreen != null) {
+                g2.drawImage(canvasImage, cacheToScreen, null);
+            } else {
+                g2.drawImage(canvasImage, 0, 0, null);
+            }
         }
+        // The shapes being drawn and the guides follow the view
+        AffineTransform screen = g2.getTransform();
+        g2.transform(view);
         if (redraw) {
             // Draw the create, affect, and guide lists
             for (int j = 0; j < activeShapeList.length; j++) {
@@ -306,9 +355,14 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             }
         }
 
+        g2.setTransform(screen);
         // Draw the image on top of the current shapes
         if (drawUnder && !exact) {
-            g2.drawImage(canvasImage, 0, 0, null);
+            if (cacheToScreen != null) {
+                g2.drawImage(canvasImage, cacheToScreen, null);
+            } else {
+                g2.drawImage(canvasImage, 0, 0, null);
+            }
         }
 
         // Draw a red circle when saving a frame
@@ -319,6 +373,33 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         }
 
 
+        // Zoomed or moved: outline of the drawing area (what the exports contain)
+        if (!view.isIdentity()) {
+            Shape area = view.createTransformedShape(new Rectangle(0, 0, w, h));
+            Area outside = new Area(new Rectangle(0, 0, w, h));
+            outside.subtract(new Area(area));
+            g2.setColor(new Color(0, 0, 0, 40));
+            g2.fill(outside);
+            g2.setColor(new Color(0, 0, 0, 90));
+            g2.setStroke(new BasicStroke(1f));
+            g2.draw(area);
+        }
+        // Zoom percentage, shown briefly after a change
+        if (System.currentTimeMillis() < zoomOverlayUntil) {
+            String label = Math.round(view.getScaleX() * 100) + " %";
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setFont(g2.getFont().deriveFont(Font.BOLD, 13f));
+            FontMetrics fm = g2.getFontMetrics();
+            int lw = fm.stringWidth(label) + 20, lh = 26;
+            int lx = w - lw - 14, ly = h - lh - 14;
+            g2.setColor(new Color(20, 20, 22, 190));
+            g2.fillRoundRect(lx, ly, lw, lh, 10, 10);
+            g2.setColor(Color.WHITE);
+            g2.drawString(label, lx + 10, ly + 18);
+        }
+
+        // The guides follow the view
+        g2.transform(view);
         // Draw the guides as required
         if (guides) {
             for (int i = 0; i < guideShapes.size(); i++) {
@@ -337,6 +418,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             }
         }
 
+        g2.setTransform(screen);
         g2.dispose();
 
     // Hints that don't seem to offer any extra performance on OSX
@@ -362,9 +444,9 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             if (fullRedraw) {
                 // If the window is transparent
                 if (Alchemy.window.isTransparent()) {
-                    canvasImage = renderCanvas(true, true);
+                    canvasImage = renderDisplay(true, true);
                 } else {
-                    canvasImage = renderCanvas(true);
+                    canvasImage = renderDisplay(true);
                 }
             }
             this.repaint();
@@ -414,7 +496,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
      * @param transparency
      */
     void updateCanvasImage(boolean transparency) {
-        canvasImage = renderCanvas(true, true);
+        canvasImage = renderDisplay(true, true);
     }
 
     /** Set Smoothing (AntiAliasing) on or off
@@ -426,7 +508,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             this.redraw(true);
         // If redraw is off, just update the canvas image
         } else {
-            canvasImage = renderCanvas(true);
+            canvasImage = renderDisplay(true);
         }
     }
 
@@ -504,7 +586,11 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
      * @return  Point2D.Float with pen location information
      */
     public Point2D.Float getPenLocation() {
-        return new Point2D.Float(penLocation.x, penLocation.y);
+        if (view.isIdentity()) {
+            return new Point2D.Float(penLocation.x, penLocation.y);
+        }
+        Point2D d = viewInverse.transform(penLocation, null);
+        return new Point2D.Float((float) d.getX(), (float) d.getY());
     }
 
     /** Set the pen location - set internally by mouse events */
@@ -611,7 +697,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
 
         this.canvasImage = null;
         if (imageDisplay && image != null) {
-            canvasImage = renderCanvas(true);
+            canvasImage = renderDisplay(true);
         }
 
         if (redraw) {
@@ -671,6 +757,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     /** Commit all shapes to the main {@link #shapes} array and render the image buffer */
     public void commitShapes() {
         tagCommittedShapes();
+        flushView();
         // Add the createShapes and affectShapes to the main array
         // Add to the bottom if drawUnder is on
         if (drawUnder) {
@@ -680,15 +767,15 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             // to keep the ordering correct
             createShapes.clear();
             affectShapes.clear();
-            canvasImage = renderCanvas(true, true);
+            canvasImage = renderDisplay(true, true);
 
         // Otherwise add to the top
         } else {
             // If the window is transparent
             if (Alchemy.window.isTransparent()) {
-                canvasImage = renderCanvas(true, true);
+                canvasImage = renderDisplay(true, true);
             } else {
-                canvasImage = renderCanvas(false);
+                canvasImage = renderDisplay(false);
             }
             shapes.addAll(createShapes);
             shapes.addAll(affectShapes);
@@ -866,7 +953,8 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     /** Commit all create shapes to the main shapes array */
     public void commitCreateShapes() {
         tagCommittedShapes();
-        canvasImage = renderCanvas(false);
+        flushView();
+        canvasImage = renderDisplay(false);
         for (int i = 0; i < createShapes.size(); i++) {
             shapes.add(createShapes.get(i));
         }
@@ -915,7 +1003,8 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     /** Commit all affect shapes to the main shapes array */
     public void commitAffectShapes() {
         tagCommittedShapes();
-        canvasImage = renderCanvas(false);
+        flushView();
+        canvasImage = renderDisplay(false);
 
         for (int i = 0; i < affectShapes.size(); i++) {
             shapes.add(affectShapes.get(i));
@@ -1019,6 +1108,139 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             Alchemy.toolBar.refreshTransparencySlider();
     }
 
+    /** Current zoom, 1 = 100 % */
+    public double getViewScale() {
+        return view.getScaleX();
+    }
+
+    /** Canvas to screen transform */
+    AffineTransform getView() {
+        return new AffineTransform(view);
+    }
+
+    boolean isViewIdentity() {
+        return view.isIdentity();
+    }
+
+    /** Set the view: zoom and position of the canvas origin on screen */
+    void setView(double scale, double x, double y) {
+        scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, scale));
+        // Snap to 100 % when very close, so the canvas pixels line up again
+        if (Math.abs(scale - 1) < 0.01 && Math.abs(x) < 0.5 && Math.abs(y) < 0.5) {
+            scale = 1;
+            x = 0;
+            y = 0;
+        }
+        view = new AffineTransform(scale, 0, 0, scale, x, y);
+        try {
+            viewInverse = view.createInverse();
+        } catch (NoninvertibleTransformException ex) {
+            viewInverse = new AffineTransform();
+        }
+        zoomOverlayUntil = System.currentTimeMillis() + 1200;
+        if (Alchemy.toolBar != null) {
+            Alchemy.toolBar.syncZoomButton(scale > 1.001);
+        }
+        // Quick preview now (the cache is scaled), full render when the gesture pauses
+        if (viewSettleTimer == null) {
+            viewSettleTimer = new javax.swing.Timer(220, e -> settleView());
+            viewSettleTimer.setRepeats(false);
+        }
+        viewSettleTimer.restart();
+        repaint();
+    }
+
+    /** Render the display at the current view, in full quality */
+    private void settleView() {
+        if (viewSettleTimer != null) {
+            viewSettleTimer.stop();
+        }
+        if (!view.equals(canvasImageView)) {
+            canvasImage = renderDisplay(true, Alchemy.window.isTransparent());
+        }
+        repaint();
+        // Hide the zoom percentage a bit later
+        javax.swing.Timer hide = new javax.swing.Timer(1300, e -> repaint());
+        hide.setRepeats(false);
+        hide.start();
+    }
+
+    /** Zoom by a factor, keeping the canvas point under the screen point (sx, sy) in place */
+    void zoomAt(double factor, double sx, double sy) {
+        double scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, view.getScaleX() * factor));
+        Point2D d = viewInverse.transform(new Point2D.Double(sx, sy), null);
+        setView(scale, sx - d.getX() * scale, sy - d.getY() * scale);
+    }
+
+    /** Zoom by a factor around the center of the window */
+    void zoomCentered(double factor) {
+        Rectangle r = getVisibleRect();
+        zoomAt(factor, r.getCenterX(), r.getCenterY());
+    }
+
+    /** Move the view by (dx, dy) screen pixels */
+    void panBy(double dx, double dy) {
+        setView(view.getScaleX(), view.getTranslateX() + dx, view.getTranslateY() + dy);
+    }
+
+    /** Back to 100 %, the whole drawing area in the window */
+    void resetView() {
+        setView(1, 0, 0);
+    }
+
+    /** Render the display cache with the current view */
+    Image renderDisplay(boolean vectorMode) {
+        return renderDisplay(vectorMode, false);
+    }
+
+    /** Render the display cache with the current view */
+    Image renderDisplay(boolean vectorMode, boolean transparent) {
+        applyViewToRender = true;
+        try {
+            canvasImageView = new AffineTransform(view);
+            return renderCanvas(vectorMode, transparent);
+        } finally {
+            applyViewToRender = false;
+        }
+    }
+
+    /** Before the cache is reused (commit), make sure it matches the view */
+    private void flushView() {
+        if (!view.equals(canvasImageView)) {
+            canvasImage = renderDisplay(true, Alchemy.window.isTransparent());
+        }
+    }
+
+    /**
+     * The mouse event in canvas coordinates, for the modules. The precise
+     * (sub-pixel) position, useful when zoomed in, is given by {@link #getDocPoint}.
+     */
+    private MouseEvent toDocument(MouseEvent e) {
+        if (view.isIdentity()) {
+            docPoint.setLocation(e.getX(), e.getY());
+            docEvent = e;
+            return e;
+        }
+        Point2D d = viewInverse.transform(new Point2D.Double(e.getX(), e.getY()), null);
+        docPoint.setLocation(d.getX(), d.getY());
+        docEvent = new MouseEvent((Component) e.getSource(), e.getID(), e.getWhen(), e.getModifiersEx(),
+                (int) Math.round(d.getX()), (int) Math.round(d.getY()), e.getXOnScreen(), e.getYOnScreen(),
+                e.getClickCount(), e.isPopupTrigger(), e.getButton());
+        return docEvent;
+    }
+
+    /**
+     * Precise position of a mouse event in canvas coordinates. When zoomed in
+     * the mouse moves by less than a canvas pixel: modules use this instead of
+     * e.getPoint() to draw with that precision.
+     */
+    public Point2D.Float getDocPoint(MouseEvent e) {
+        if (e == docEvent) {
+            return new Point2D.Float(docPoint.x, docPoint.y);
+        }
+        return new Point2D.Float(e.getX(), e.getY());
+    }
+
     boolean isExactRender() {
         return exactRender;
     }
@@ -1028,7 +1250,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         this.exactRender = exactRender;
         exactRenderer.invalidate();
         if (!exactRender) {
-            canvasImage = renderCanvas(true);
+            canvasImage = renderDisplay(true);
         }
         repaint();
     }
@@ -1042,7 +1264,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         java.awt.Rectangle visibleRect = this.getVisibleRect();
         boolean showImage = imageDisplay && image != null;
         renderer.render(shapes, bgColor, showImage ? getImage() : null, showImage ? getImageLocation() : null,
-                visibleRect.width, visibleRect.height, smoothing);
+                visibleRect.width, visibleRect.height, smoothing, null);
         return renderer;
     }
 
@@ -1248,60 +1470,26 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     }
     
     /** Zoom the Canvas 4x - keep location under mouse, under the mouse */
+    /** Z key / zoom button: toggle between 100 % and 400 % around the mouse */
     public boolean zoomCanvas(boolean keyLaunch){
-        
-        //things get wacky if you quick-key zoom while over the toolbar...       
-        if(this.getMousePosition()!=null||!keyLaunch){
-
-            double x;
-            double y;
-            double imageZoomX;
-            double imageZoomY;
-            AffineTransform zoom = new AffineTransform();
-            
-            // Not Zoomed, lets set data for zooming/
-            if(currentZoom==1/zoomAmount){
-                currentZoom = zoomAmount;
-                Point location = this.getMousePosition();
-                // set the zoom coordinate so that location under mouse remains under the mouse
-                lastZoomX = location.getX()-((this.getWidth()/zoomAmount)*(location.getX()/this.getWidth()));
-                lastZoomY = location.getY()-((this.getHeight()/zoomAmount)*(location.getY()/this.getHeight()));
-                imageZoomX = (location.getX()-imageLocation.getX())-
-                   ( (this.getWidth()/zoomAmount) * ( (location.getX()-imageLocation.getX()) / this.getWidth() ) );
-                imageZoomY = (location.getY()-imageLocation.getY())-
-                   ( (this.getWidth()/zoomAmount) * ( (location.getY()-imageLocation.getY()) / this.getWidth() ) );
-                x = 0 - ((zoomAmount * lastZoomX));
-                y = 0 - ((zoomAmount * lastZoomY));
-                
-                zoomedImageLocation.x = (int)(imageLocation.getX() - (zoomAmount*imageZoomX));
-                zoomedImageLocation.y = (int)(imageLocation.getY() - (zoomAmount*imageZoomY));
-                
-            // Zoomed, lets set data for unzooming
-            }else{
-                currentZoom = 1/zoomAmount;
-                x = lastZoomX;
-                y = lastZoomY;
-            }       
-            zoom = AffineTransform.getTranslateInstance ( x,y );
-            zoom.scale(currentZoom,currentZoom);
-            for(AlcShape shape : shapes){
-                GeneralPath zoomPath = (GeneralPath) shape.getPath().createTransformedShape(zoom);
-                shape.setPath(zoomPath);
-                shape.setGradientPaint(makeHorizontalReflectedGradientPaint(shape.getGradientPaint()));
+        Point location = this.getMousePosition();
+        if (location == null && keyLaunch) {
+            return false;
+        }
+        if (view.getScaleX() > 1.001) {
+            resetView();
+        } else {
+            if (location == null) {
+                Rectangle r = getVisibleRect();
+                location = new Point((int) r.getCenterX(), (int) r.getCenterY());
             }
-            redraw(true);
-            
-            // success
-            return(true);
-        
-        }else{
-            // fail
-            return(false);
-        }       
+            zoomAt(zoomAmount / view.getScaleX(), location.getX(), location.getY());
+        }
+        return true;
     }
-    
+
     public void startZoomMousing(){
-        if(currentZoom<1){
+        if(view.getScaleX() <= 1.001){
             zoomMousing = true;
             Alchemy.toolBar.setToolBarVisible(false);
             setTempCursor(CURSOR_ZOOM);
@@ -1314,37 +1502,19 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         zoomMousing = false;
         restoreCursor();
     }
+    /** The shapes are no longer transformed when zooming (the view is): always false */
     public boolean isCanvasZoomed(){
-        if (currentZoom>1){
-            return true;
-        }else{
-            return false;
-        }
+        return false;
     }
+    /** Kept for the modules: the view no longer changes the canvas coordinates */
     public Point2D.Double getZoomLocation(){
-        Point2D.Double p = new Point2D.Double();
-        if(isCanvasZoomed()){
-            p.setLocation(lastZoomX,lastZoomY);
-        }else{
-            p.setLocation(0.0,0.0);
-        }
-        return p;
+        return new Point2D.Double(0.0, 0.0);
     }
     public double calculateZoomedX(double c){
-        if(isCanvasZoomed()){
-           c = (0 - (4*(int)lastZoomX))+(c*4);
-           return c;
-        }else{
-           return c;
-        }
+        return c;
     }
     public double calculateZoomedY(double c){
-        if(isCanvasZoomed()){
-           c = (0 - (4*(int)lastZoomY))+(c*4);
-           return c;
-        }else{
-           return c;
-        }
+        return c;
     }
 
     //////////////////////////////////////////////////////////////
@@ -1356,12 +1526,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
      */
     public void setImage(BufferedImage image) {
         this.image = image;
-        if(this.image!=null){
-           this.zoomedImage = getZoomedImage(this.image);
-        }else{
-            this.zoomedImage =null;
-        }
-        canvasImage = renderCanvas(true);
+        canvasImage = renderDisplay(true);
         if (image != null) {
             Alchemy.menuBar.unloadBackgroundImageItem.setEnabled(true);
         } else {
@@ -1369,35 +1534,12 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         }
     }
     
-    private BufferedImage getZoomedImage(BufferedImage image){
-        
-        // Create new (blank) image of required (scaled) size
-        BufferedImage scaledImage = new BufferedImage((int)(image.getWidth()*zoomAmount), 
-                                                      (int)(image.getHeight()*zoomAmount), 
-                                                      BufferedImage.TYPE_INT_ARGB);
-
-        // Paint scaled version of image to new image
-        Graphics2D graphics2D = scaledImage.createGraphics();
-        graphics2D.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
-        RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        graphics2D.drawImage(image, 0, 0, (int)(image.getWidth()*zoomAmount), (int)(image.getHeight()*zoomAmount), null);
-
-        // clean up
-        graphics2D.dispose();
-        
-        return scaledImage;
-    }
-
     /** Get the current image
      * 
      * @return  The current image
      */
     public Image getImage() {
-        if(isCanvasZoomed()){
-            return this.zoomedImage;
-        }else{
-            return this.image;
-        }
+        return this.image;
     }
 
     /** Check if an Image is defined or not
@@ -1414,7 +1556,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
      */
     public void setImageDisplay(boolean imageDisplay) {
         this.imageDisplay = imageDisplay;
-        canvasImage = renderCanvas(true);
+        canvasImage = renderDisplay(true);
     }
 
     /** Check if image display is enabled
@@ -1442,19 +1584,12 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         this.imageLocation.y = y;
     }
     
-    private void setZoomedImageLocation(){
-        
-    }
     /** Get the location where the image is displayed on the canvas
      * 
      * @return  Point - x & y location
      */
     public Point getImageLocation() {
-        if(isCanvasZoomed()){
-         return zoomedImageLocation;   
-        }else{
         return imageLocation;
-        }
     }
 
     /** Reset the image location back to zero */
@@ -1679,7 +1814,58 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     //////////////////////////////////////////////////////////////
     // MOUSE EVENTS
     //////////////////////////////////////////////////////////////
+    /** Middle button drag: moves the view */
+    private Point panFrom = null;
+
+    /**
+     * Wheel and trackpad: Cmd (Ctrl) + wheel zooms under the mouse, the wheel
+     * or two fingers move the view (Shift: horizontally).
+     */
+    public void mouseWheelMoved(MouseWheelEvent e) {
+        double amount = e.getPreciseWheelRotation();
+        if (amount == 0) {
+            return;
+        }
+        if (e.isMetaDown() || e.isControlDown()) {
+            zoomAt(Math.pow(1.1, -amount), e.getX(), e.getY());
+        } else if (e.isShiftDown()) {
+            panBy(-amount * 12, 0);
+        } else {
+            panBy(0, -amount * 12);
+        }
+    }
+
+    /** Trackpad pinch on macOS, through the (non public) Apple gesture API if present */
+    private void installMagnification() {
+        try {
+            Class<?> utilities = Class.forName("com.apple.eawt.event.GestureUtilities");
+            Class<?> listenerClass = Class.forName("com.apple.eawt.event.MagnificationListener");
+            Class<?> gestureListener = Class.forName("com.apple.eawt.event.GestureListener");
+            Object listener = java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),
+                    new Class<?>[]{listenerClass}, (proxy, method, args) -> {
+                        if (method.getName().equals("magnify") && args != null && args.length == 1) {
+                            double m = (Double) args[0].getClass().getMethod("getMagnification").invoke(args[0]);
+                            Point p = getMousePosition();
+                            if (p == null) {
+                                Rectangle r = getVisibleRect();
+                                p = new Point((int) r.getCenterX(), (int) r.getCenterY());
+                            }
+                            zoomAt(1 + m, p.x, p.y);
+                        } else if (method.getName().equals("hashCode")) {
+                            return System.identityHashCode(proxy);
+                        } else if (method.getName().equals("equals")) {
+                            return proxy == args[0];
+                        }
+                        return null;
+                    });
+            utilities.getMethod("addGestureListenerTo", JComponent.class, gestureListener).invoke(null, this, listener);
+        } catch (Throwable t) {
+            // Not on macOS, or the API is not accessible: Cmd + wheel still zooms
+        }
+    }
+
     public void mouseMoved(MouseEvent event) {
+        final MouseEvent doc = toDocument(event);
         setPenLocation(event);
         if (isAutoToggleToolBar()) {
             Alchemy.toolBar.toggleToolBar(event.getY());
@@ -1687,14 +1873,14 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         if (events) {
             // Pass to the current create module
             if (createEvents) {
-                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseMoved(event);
+                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseMoved(doc);
             }
             // Pass to all active affect modules
             if (affectEvents) {
                 if (Alchemy.plugins.hasCurrentAffects()) {
                     for (int i = 0; i < Alchemy.plugins.currentAffects.length; i++) {
                         if (Alchemy.plugins.currentAffects[i]) {
-                            Alchemy.plugins.affects[i].mouseMoved(event);
+                            Alchemy.plugins.affects[i].mouseMoved(doc);
                         }
                     }
                 }
@@ -1706,6 +1892,12 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     }
 
     public void mousePressed(MouseEvent event) {
+        if (event.getButton() == MouseEvent.BUTTON2) {
+            panFrom = event.getPoint();
+            setTempCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+            return;
+        }
+        final MouseEvent doc = toDocument(event);
         penDown = true;
         // Hide the toolbar when clicking on the canvas
         if (!Alchemy.preferences.paletteAttached && Alchemy.toolBar.isToolBarVisible() && !AlcTheme.isModern() &&
@@ -1720,22 +1912,21 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         if (events) {          
             if(zoomMousing){             
                 zoomMousing = false;
-                zoomCanvas(false);
-                Alchemy.toolBar.setZoomButtonSelected();
                 restoreCursor();
+                zoomAt(zoomAmount / view.getScaleX(), event.getX(), event.getY());
                 
             }else{
                 startUndoGroup();   
                 // Pass to the current create module
                 if (createEvents) {
-                    Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mousePressed(event);
+                    Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mousePressed(doc);
                 }
                 // Pass to all active affect modules
                 if (affectEvents) {
                     if (Alchemy.plugins.hasCurrentAffects()) {
                         for (int i = 0; i < Alchemy.plugins.currentAffects.length; i++) {
                             if (Alchemy.plugins.currentAffects[i]) {
-                                Alchemy.plugins.affects[i].mousePressed(event);
+                                Alchemy.plugins.affects[i].mousePressed(doc);
                             }
                         }
                     }
@@ -1773,17 +1964,21 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     }
 
     public void mouseClicked(MouseEvent event) {
+        if (event.getButton() == MouseEvent.BUTTON2) {
+            return;
+        }
+        final MouseEvent doc = toDocument(event);
         if (events) {
             // Pass to the current create module
             if (createEvents) {
-                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseClicked(event);
+                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseClicked(doc);
             }
             // Pass to all active affect modules
             if (affectEvents) {
                 if (Alchemy.plugins.hasCurrentAffects()) {
                     for (int i = 0; i < Alchemy.plugins.currentAffects.length; i++) {
                         if (Alchemy.plugins.currentAffects[i]) {
-                            Alchemy.plugins.affects[i].mouseClicked(event);
+                            Alchemy.plugins.affects[i].mouseClicked(doc);
                         }
                     }
                 }
@@ -1792,17 +1987,18 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     }
 
     public void mouseEntered(MouseEvent event) {
+        final MouseEvent doc = toDocument(event);
         if (events) {
             // Pass to the current create module
             if (createEvents) {
-                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseEntered(event);
+                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseEntered(doc);
             }
             // Pass to all active affect modules
             if (affectEvents) {
                 if (Alchemy.plugins.hasCurrentAffects()) {
                     for (int i = 0; i < Alchemy.plugins.currentAffects.length; i++) {
                         if (Alchemy.plugins.currentAffects[i]) {
-                            Alchemy.plugins.affects[i].mouseEntered(event);
+                            Alchemy.plugins.affects[i].mouseEntered(doc);
                         }
                     }
                 }
@@ -1811,17 +2007,18 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     }
 
     public void mouseExited(MouseEvent event) {
+        final MouseEvent doc = toDocument(event);
         if (events) {
             // Pass to the current create module
             if (createEvents) {
-                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseExited(event);
+                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseExited(doc);
             }
             // Pass to all active affect modules
             if (affectEvents) {
                 if (Alchemy.plugins.hasCurrentAffects()) {
                     for (int i = 0; i < Alchemy.plugins.currentAffects.length; i++) {
                         if (Alchemy.plugins.currentAffects[i]) {
-                            Alchemy.plugins.affects[i].mouseExited(event);
+                            Alchemy.plugins.affects[i].mouseExited(doc);
                         }
                     }
                 }
@@ -1830,18 +2027,24 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     }
 
     public void mouseReleased(MouseEvent event) {
+        if (panFrom != null) {
+            panFrom = null;
+            restoreCursor();
+            return;
+        }
+        final MouseEvent doc = toDocument(event);
         penDown = false;
         if (events) {
             // Pass to the current create module
             if (createEvents) {
-                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseReleased(event);
+                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseReleased(doc);
             }
             // Pass to all active affect modules
             if (affectEvents) {
                 if (Alchemy.plugins.hasCurrentAffects()) {
                     for (int i = 0; i < Alchemy.plugins.currentAffects.length; i++) {
                         if (Alchemy.plugins.currentAffects[i]) {
-                            Alchemy.plugins.affects[i].mouseReleased(event);
+                            Alchemy.plugins.affects[i].mouseReleased(doc);
                         }
                     }
                 }
@@ -1851,18 +2054,24 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     }
 
     public void mouseDragged(MouseEvent event) {
+        if (panFrom != null) {
+            panBy(event.getX() - panFrom.x, event.getY() - panFrom.y);
+            panFrom = event.getPoint();
+            return;
+        }
+        final MouseEvent doc = toDocument(event);
         setPenLocation(event);
         if (events) {
             // Pass to the current create module
             if (createEvents) {
-                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseDragged(event);
+                Alchemy.plugins.creates[Alchemy.plugins.currentCreate].mouseDragged(doc);
             }
             // Pass to all active affect modules
             if (affectEvents) {
                 if (Alchemy.plugins.hasCurrentAffects()) {
                     for (int i = 0; i < Alchemy.plugins.currentAffects.length; i++) {
                         if (Alchemy.plugins.currentAffects[i]) {
-                            Alchemy.plugins.affects[i].mouseDragged(event);
+                            Alchemy.plugins.affects[i].mouseDragged(doc);
                         }
                     }
                 }
@@ -1950,6 +2159,11 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
                 Color bgColor = Alchemy.canvas.getBackgroundColor();
                 g2.setColor(new Color(bgColor.getRed(), bgColor.getGreen(), bgColor.getBlue()));
                 g2.fillRect(0, 0, width, height);
+            }
+
+            // Display cache: drawn with the zoom and pan; exports: the canvas as it is
+            if (Alchemy.canvas.applyViewToRender) {
+                g2.transform(Alchemy.canvas.view);
             }
 
             // PDF READER

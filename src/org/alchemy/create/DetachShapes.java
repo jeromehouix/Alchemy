@@ -18,6 +18,7 @@
  */
 package org.alchemy.create;
 
+import java.awt.geom.Point2D;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
 import javax.swing.event.ChangeEvent;
@@ -91,7 +92,7 @@ public class DetachShapes extends AlcModule {
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        Point p = e.getPoint();
+        Point2D.Float p = point(e);
         //int speed = 100 - (getCursorSpeed(p, oldP));
         //int speed = 100;
         //System.out.println(speed);
