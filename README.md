@@ -29,7 +29,7 @@ Il faut Java 21 ou plus récent.
 ./gradlew jpackage    # application native avec Java intégré (.dmg sur macOS)
 ```
 
-Chaque push déclenche le workflow GitHub Actions `Build macOS app`, qui produit le `.dmg` arm64. Pousser un tag `v*` (par exemple `v8.1.0`) le publie aussi en release.
+Chaque push déclenche le workflow GitHub Actions `Build macOS app`, qui produit le `.dmg` arm64. Sur `master`, si la version indiquée dans `build.gradle` n'a pas encore de release, le workflow crée la release `v<version>` avec le `.dmg`. Pour publier une nouvelle version, il suffit donc d'augmenter `version`.
 
 ## Changements par rapport à la version 008
 

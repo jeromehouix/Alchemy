@@ -2,12 +2,12 @@ name: Build macOS app
 
 # Builds Alchemy.dmg for Apple Silicon (arm64) with an embedded Java runtime.
 # - every push / pull request: the .dmg is attached to the run as an artifact
-# - pushing a tag like v8.1.0: the .dmg is also published as a GitHub release
+# - push on master: if no release exists yet for the version in build.gradle,
+#   the release v<version> is created with the .dmg (bump the version to publish)
 
 on:
   push:
-    branches: [master, modernisation]
-    tags: ['v*']
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
@@ -37,7 +37,14 @@ jobs:
           if-no-files-found: error
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: build/jpackage/*.dmg
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(sed -n "s/^version = '\(.*\)'/\1/p" build.gradle)
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists, nothing to publish"
+          else
+            gh release create "v$VERSION" build/jpackage/*.dmg \
+              --target "$GITHUB_SHA" --title "Alchemy $VERSION" --generate-notes
+          fi
