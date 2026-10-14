@@ -718,7 +718,7 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
 
             public void actionPerformed(ActionEvent e) {
 
-                File manual = new File("Alchemy.pdf");
+                File manual = AlcPaths.file("Alchemy.pdf");
                 if (manual.exists()) {
                     AlcUtil.openPDF(manual);
                 } else {

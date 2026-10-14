@@ -343,7 +343,7 @@ public class AlcUtil implements AlcConstants {
         ArrayList<AlcShape> shapes = new ArrayList<AlcShape>();
 
         // Folder of the plugins
-        File shapesDir = new File("shapes");
+        File shapesDir = AlcPaths.shapesDir();
         // Filter to check the MIME type, not just the file extension
         FilenameFilter pdfFilter = new FilenameFilter() {
 
