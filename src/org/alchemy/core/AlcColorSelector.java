@@ -323,7 +323,7 @@ public class AlcColorSelector extends JDialog implements DocumentListener, AlcCo
 
         row.add(createFixedLabel("H:"));
         row.add(hueField = new NumberField(4, false));
-        row.add(new JLabel(" °"));  // degree symbol
+        row.add(new JLabel(" Â°"));  // degree symbol
         row.add(Box.createHorizontalGlue());
         box.add(row);
         //box.add(Box.createVerticalStrut(5));

@@ -100,7 +100,7 @@ class AlcPlugins implements AlcConstants {
         ex.printStackTrace();
         }
          */        // Folder of the plugins
-        File pluginsDir = new File("modules");
+        File pluginsDir = AlcPaths.file("modules");
 
         if (!pluginsDir.exists()) {
             // Tell the user that there must be at least one module loaded

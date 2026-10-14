@@ -61,7 +61,7 @@ public class AlcWindow extends JFrame implements AlcConstants, WindowStateListen
     AlcWindow() {
 
         // Set up our application to respond to the Mac OS X application menu
-        super("OSXAdapter");
+        super("Alchemy");
         registerForMacOSXEvents();
 
         // Exit Function
@@ -597,36 +597,47 @@ public class AlcWindow extends JFrame implements AlcConstants, WindowStateListen
     //////////////////////////////////////////////////////////////
     /**
      * Generic registration with the Mac OS X application menu
-     * Checks the platform, then attempts to register with the Apple EAWT
-     * See OSXAdapter.java to see how this is done without directly referencing any Apple APIs
+     * Uses the standard java.awt.Desktop API (com.apple.eawt was removed in Java 9)
      */
     private void registerForMacOSXEvents() {
-        if (Alchemy.OS == OS_MAC) {
-            try {
-                // Generate and register the OSXAdapter, passing it a hash of all the methods we wish to
-                // use as delegates for various com.apple.eawt.ApplicationListener methods
-                //OSXAdapter.setQuitHandler(this, getClass().getDeclaredMethod("quit", (Class[]) null));
-                OSXAdapter.setQuitHandler(this, getClass().getDeclaredMethod("exitAlchemy", (Class[]) null));
-                OSXAdapter.setAboutHandler(this, getClass().getDeclaredMethod("showAbout", (Class[]) null));
-                OSXAdapter.setPreferencesHandler(this, getClass().getDeclaredMethod("showPreferences", (Class[]) null));
-            //OSXAdapter.setFileHandler(this, getClass().getDeclaredMethod("loadFile", new Class[]{String.class}));
-            } catch (Exception e) {
-                System.err.println("Error while loading the OSXAdapter:");
-                e.printStackTrace();
+        // The Apple specific com.apple.eawt API was removed in Java 9,
+        // the standard java.awt.Desktop API now provides the same handlers
+        if (!Desktop.isDesktopSupported()) {
+            return;
+        }
+        try {
+            Desktop desktop = Desktop.getDesktop();
+            if (desktop.isSupported(Desktop.Action.APP_QUIT_HANDLER)) {
+                desktop.setQuitHandler((event, response) -> {
+                    if (exitAlchemy()) {
+                        response.performQuit();
+                    } else {
+                        response.cancelQuit();
+                    }
+                });
             }
+            if (desktop.isSupported(Desktop.Action.APP_ABOUT)) {
+                desktop.setAboutHandler(event -> showAbout());
+            }
+            if (desktop.isSupported(Desktop.Action.APP_PREFERENCES)) {
+                desktop.setPreferencesHandler(event -> showPreferences());
+            }
+        } catch (Exception e) {
+            System.err.println("Error while registering the application menu handlers:");
+            e.printStackTrace();
         }
     }
 
     /**
-     * General info dialog; fed to the OSXAdapter as the method to call when 
-     * "About OSXAdapter" is selected from the application menu
+     * General info dialog; registered with java.awt.Desktop as the method to call when 
+     * "About Alchemy" is selected from the application menu
      */
     void showAbout() {
         new AlcAbout(Alchemy.window);
     }
 
     /** 
-     * General preferences dialog; fed to the OSXAdapter as the method to call when
+     * General preferences dialog; registered with java.awt.Desktop as the method to call when
      * "Preferences..." is selected from the application menu
      */
     void showPreferences() {

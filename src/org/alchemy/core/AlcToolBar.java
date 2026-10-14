@@ -1247,7 +1247,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     }
 
     private void refreshSubToolBar() {
-        // Remove everythingœ
+        // Remove everything√è
         subToolBar.removeAll();
 
         // If there is a create section add that first

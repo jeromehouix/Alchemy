@@ -170,7 +170,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
         folderNames = null;
 
         // Folder of the plugins
-        File shapesDir = new File("shapes");
+        File shapesDir = AlcPaths.shapesDir();
 
         // Filter for the folders not starting with '.'
         FileFilter folderFilter = new  

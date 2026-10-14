@@ -237,15 +237,10 @@ public class Alchemy implements AlcConstants {
                 System.setProperty("apple.laf.useScreenMenuBar", "true");
                 //System.setProperty("apple.awt.draggableWindowBackground", "true");
                 //System.setProperty("com.apple.mrj.application.growbox.intrudes","false");
-                UIManager.setLookAndFeel("ch.randelshofer.quaqua.QuaquaLookAndFeel");
-
-                String css = "<head>" +
-                        "<style type=\"text/css\">" +
-                        "b { font: 13pt \"Lucida Grande\" }" +
-                        "p { font: 11pt \"Lucida Grande\"; margin-top: 8px }" +
-                        "</style>" +
-                        "</head>";
-                UIManager.put("OptionPane.css", css);
+                System.setProperty("apple.awt.application.name", "Alchemy");
+                // Quaqua no longer works with modern Java,
+                // the built-in Aqua look and feel is used instead
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 
             } else {
 //                if(PLATFORM == WINDOWS){

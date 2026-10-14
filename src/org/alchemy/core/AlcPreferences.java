@@ -184,7 +184,7 @@ class AlcPreferences implements AlcConstants {
         sessionFilePreName = prefs.get("Session File Pre Name", defaultSessionFilePreName);
         sessionFileDateFormat = prefs.get("Session File Date Format", defaultSessionFileDateFormat);
 
-        shapesPath = prefs.get("Shapes Path", new File("shapes").getAbsolutePath());
+        shapesPath = prefs.get("Shapes Path", AlcPaths.defaultShapesDir().getAbsolutePath());
 
         switchVectorApp = prefs.get("Switch Vector Application", null);
         switchVectorFormat = prefs.getInt("Switch Vector Format", 0);
