@@ -197,6 +197,26 @@ class AlcVectorIcon extends ImageIcon {
     }
 
     static {
+        // PREFERENCES > GENERAL: three sliders
+        icon("preferences-general", 32, 32, (g, w, h, s) -> {
+            box(g, w, h, 24);
+            g.draw(path(4, 7, 20, 7));
+            g.draw(path(4, 12, 20, 12));
+            g.draw(path(4, 17, 20, 17));
+            g.fill(new Ellipse2D.Float(6.5f, 5, 4, 4));
+            g.fill(new Ellipse2D.Float(13.5f, 10, 4, 4));
+            g.fill(new Ellipse2D.Float(9, 15, 4, 4));
+        });
+        // PREFERENCES > SESSION: a page being recorded
+        icon("preferences-session", 32, 32, (g, w, h, s) -> {
+            box(g, w, h, 24);
+            g.draw(new RoundRectangle2D.Float(4, 3, 12, 16, 2, 2));
+            g.draw(path(7, 8, 13, 8));
+            g.draw(path(7, 11, 11, 11));
+            Ellipse2D rec = new Ellipse2D.Float(13, 13, 8, 8);
+            g.setColor(new Color(225, 60, 60));
+            g.fill(rec);
+        });
         // STYLE: outline square = line, filled square = solid (selected)
         icon("style", 24, 24, (g, w, h, s) -> {
             box(g, w, h, 24);

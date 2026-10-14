@@ -164,7 +164,14 @@ public class AlcToggleButton extends JToggleButton implements AlcShortcutInterfa
     @Override
     protected void paintComponent(Graphics g) {
         if (preferenceButton) {
-            if (isSelected()) {
+            if (isSelected() && AlcTheme.isModern()) {
+                // Flat rounded highlight in the theme colors
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(AlcTheme.hover());
+                g2.fillRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 10, 10);
+                g2.dispose();
+            } else if (isSelected()) {
                 if (backgroundImage == null) {
                     backgroundImage = createBackgroundImage();
                 }

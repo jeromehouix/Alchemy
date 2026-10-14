@@ -354,7 +354,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
     }
 
     /** Choose PDF and SVG files and copy them into a folder of stamps */
-    private void importStamps() {
+    public void importStamps() {
         File shapesDir = AlcPaths.shapesDir();
         // 1. The files
         FileDialog chooser = new FileDialog((Frame) null, "Add stamps (PDF or SVG)", FileDialog.LOAD);
