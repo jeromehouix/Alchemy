@@ -1,0 +1,185 @@
+// Alchemy - modern build (replaces the old Ant / NetBeans build)
+//
+//   ./gradlew dist        assemble build/dist/Alchemy (jar, lib, modules, shapes)
+//   ./gradlew runDist     run Alchemy from build/dist/Alchemy
+//   ./gradlew jpackage    native application with an embedded Java runtime
+//                         (.dmg on macOS, app image elsewhere)
+
+plugins {
+    id 'java'
+}
+
+version = '8.1.0'
+
+def javaRelease = 21
+
+// Modules present in the sources but not shipped (same as the original build)
+def excludedModules = ['shapeSwap', 'pitchShapes']
+
+// Libraries needed at runtime, copied flat into lib/ next to Alchemy.jar
+def runtimeLibs = files(
+        'lib/foxtrot.jar',
+        'lib/jpf/jpf.jar',
+        'lib/jpf/commons-logging.jar',
+        'lib/PDFRenderer.jar',
+        'lib/itext.jar',
+        'lib/mime-util.jar',
+        'lib/jpen/jpen-2.jar',
+        'lib/beads.jar',
+        'lib/miglayout.jar',
+        fileTree('lib/batik') { include '*.jar' }
+)
+
+sourceSets {
+    main {
+        java { srcDirs = ['src'] }
+        resources {
+            srcDirs = ['src']
+            exclude '**/*.java'
+        }
+    }
+}
+
+dependencies {
+    implementation runtimeLibs
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = javaRelease
+    // 2010 code base: raw types, deprecated APIs... keep the output readable
+    options.compilerArgs += ['-nowarn', '-Xlint:none']
+}
+
+// The core application. Module classes (create / affect) go in the module zips.
+jar {
+    archiveFileName = 'Alchemy.jar'
+    exclude 'org/alchemy/create/**', 'org/alchemy/affect/**'
+    manifest {
+        attributes(
+                'Main-Class': 'org.alchemy.core.Alchemy',
+                'Class-Path': runtimeLibs.files.collect { 'lib/' + it.name }.sort().join(' ')
+        )
+    }
+}
+
+// --------------------------------------------------------------------------
+// Modules: one JPF zip per folder in modules/, named <plugin-id>-<version>.zip,
+// containing plugin.xml, data/ and the module classes. A module's classes are
+// the ones whose name starts with the folder name (case insensitive), in the
+// package given by the extension point (Create -> create, Affect -> affect).
+// --------------------------------------------------------------------------
+def readPlugin = { File xmlFile ->
+    def slurper = new groovy.xml.XmlSlurper(false, false, true)
+    // Never fetch the JPF DTD from the network
+    slurper.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
+    slurper.parse(xmlFile)
+}
+
+def moduleDirs = file('modules').listFiles()
+        .findAll { it.isDirectory() && new File(it, 'plugin.xml').exists() && !(it.name in excludedModules) }
+        .sort { it.name }
+
+def moduleZipTasks = moduleDirs.collect { File dir ->
+    def plugin = readPlugin(new File(dir, 'plugin.xml'))
+    def pluginId = plugin.@id.text()
+    def pluginVersion = plugin.@version.text()
+    def point = plugin.extension.@'point-id'.text()
+    def prefix = dir.name.toLowerCase()
+
+    tasks.register("module_${dir.name}", Zip) {
+        group = 'build'
+        description = "Package the ${dir.name} module"
+        archiveFileName = "${pluginId}-${pluginVersion}.zip"
+        destinationDirectory = layout.buildDirectory.dir('modules')
+        includeEmptyDirs = false
+        from(dir) {
+            include 'plugin.xml', 'data/**'
+        }
+        if (point) {
+            def classPath = "org/alchemy/${point.toLowerCase()}/"
+            dependsOn tasks.named('classes')
+            from(sourceSets.main.output.classesDirs) {
+                include { element ->
+                    element.directory || (element.path.startsWith(classPath)
+                            && !element.path.substring(classPath.length()).contains('/')
+                            && element.name.toLowerCase().startsWith(prefix))
+                }
+            }
+        }
+    }
+}
+
+tasks.register('modules') {
+    group = 'build'
+    description = 'Package every module as a JPF zip'
+    dependsOn moduleZipTasks
+}
+
+// --------------------------------------------------------------------------
+// Distribution folder: the layout Alchemy expects next to Alchemy.jar
+// --------------------------------------------------------------------------
+def distDir = layout.buildDirectory.dir('dist/Alchemy')
+
+tasks.register('dist', Sync) {
+    group = 'distribution'
+    description = 'Assemble the Alchemy folder in build/dist/Alchemy'
+    dependsOn jar, 'modules'
+    into distDir
+    from(jar)
+    into('lib') { from runtimeLibs }
+    into('modules') { from layout.buildDirectory.dir('modules') }
+    into('shapes') { from 'shapes' }
+    from('res') { include 'Alchemy.pdf', 'COPYING', 'ReadMe.txt' }
+}
+
+tasks.register('runDist', JavaExec) {
+    group = 'application'
+    description = 'Run Alchemy from build/dist/Alchemy'
+    dependsOn 'dist'
+    mainClass = 'org.alchemy.core.Alchemy'
+    classpath = files(distDir.map { it.file('Alchemy.jar') })
+    workingDir = distDir
+}
+
+// --------------------------------------------------------------------------
+// Native application with an embedded Java runtime (jpackage)
+// --------------------------------------------------------------------------
+tasks.register('jpackage', Exec) {
+    group = 'distribution'
+    description = 'Build a native application (.dmg on macOS, app image elsewhere)'
+    dependsOn 'dist'
+
+    def isMac = org.gradle.internal.os.OperatingSystem.current().isMacOsX()
+    def outDir = layout.buildDirectory.dir('jpackage').get().asFile
+
+    doFirst {
+        project.delete(outDir)
+    }
+
+    def javaHome = System.getProperty('java.home')
+    def args = [
+            "${javaHome}/bin/jpackage",
+            '--type', isMac ? 'dmg' : 'app-image',
+            '--name', 'Alchemy',
+            '--app-version', project.version,
+            '--vendor', 'Alchemy',
+            '--description', 'Alchemy, an open drawing project',
+            '--input', distDir.get().asFile.path,
+            '--main-jar', 'Alchemy.jar',
+            '--main-class', 'org.alchemy.core.Alchemy',
+            '--dest', outDir.path,
+            // Tells Alchemy where modules/, shapes/ and the manual are
+            '--java-options', '-Dalchemy.home=$APPDIR',
+            // Room for compositions made of thousands of shapes
+            '--java-options', '-XX:MaxRAMPercentage=50',
+    ]
+    if (isMac) {
+        args += [
+                '--icon', file('res/Alchemy.icns').path,
+                '--mac-package-identifier', 'io.github.jeromehouix.alchemy',
+                '--mac-package-name', 'Alchemy',
+        ]
+    }
+    commandLine args
+}
