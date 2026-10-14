@@ -84,6 +84,10 @@ public class AlcSliderCustom extends JComponent implements MouseListener, MouseM
     @Override
     public void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
+        if (AlcTheme.isModern() && bgImage == null) {
+            paintModern(g2);
+            return;
+        }
         if (bgImage != null) {
             g2.drawImage(bgImage, 0, 0, null);
         } else {
@@ -118,6 +122,23 @@ public class AlcSliderCustom extends JComponent implements MouseListener, MouseM
         //g2.setStroke(new BasicStroke(2, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL));
         g2.drawLine(displayValue, 0, displayValue, height);
 
+    }
+
+    /** Flat slider of the modern interface */
+    private void paintModern(Graphics2D g2) {
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        int arc = height > 18 ? 8 : 6;
+        g2.setColor(AlcTheme.field());
+        g2.fillRoundRect(0, 0, width - 1, height - 1, arc, arc);
+        if (fillPainting) {
+            Color a = AlcTheme.accent();
+            g2.setColor(new Color(a.getRed(), a.getGreen(), a.getBlue(), 70));
+            g2.fillRoundRect(0, 0, Math.max(arc, displayValue), height - 1, arc, arc);
+        }
+        g2.setColor(AlcTheme.line());
+        g2.drawRoundRect(0, 0, width - 1, height - 1, arc, arc);
+        g2.setColor(line == Color.BLACK ? AlcTheme.accent() : AlcTheme.muted());
+        g2.fillRect(Math.max(1, Math.min(width - 3, displayValue - 1)), 2, 2, height - 4);
     }
 
     private void moveSlider(int x) {

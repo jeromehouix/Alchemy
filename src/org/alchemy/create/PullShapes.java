@@ -20,6 +20,10 @@ package org.alchemy.create;
 
 import eu.medsea.util.MimeUtil;
 import java.awt.Rectangle;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.Rectangle2D;
+import java.util.List;
 import java.awt.event.*;
 import java.io.File;
 import java.io.FileFilter;
@@ -45,6 +49,14 @@ public class PullShapes extends AlcModule implements AlcConstants {
     private int currentFolder;
     private String[] folderNames;
     private ArrayList[] shapeLists;
+    /** Whole illustrations (all the shapes of a PDF page or an SVG file), per folder */
+    private ArrayList[] wholeLists;
+    /** Stamp whole illustrations instead of single shapes */
+    private boolean whole = false;
+    /** Keep the colors of the illustrations instead of the current color */
+    private boolean originalColors = false;
+    /** Numbers the stamps, so the shapes of one stamp can be grouped in the SVG export */
+    private static int stampCounter = 0;
     private AlcSubComboBox folderSelector;
     //
     private boolean scale = true;
@@ -82,15 +94,18 @@ public class PullShapes extends AlcModule implements AlcConstants {
 
         // Reload
         AlcSubButton reloadButton = new AlcSubButton("Reload", AlcUtil.getUrlPath("reload.png", getClassLoader()));
-        reloadButton.setToolTipText("Reload shapes from the 'shapes' folder in the Alchemy directory");
+        reloadButton.setToolTipText("Reload the stamps (PDF and SVG files) from the shapes folder: " + AlcPaths.shapesDir());
         reloadButton.addActionListener(
                 new ActionListener() {
 
                     public void actionPerformed(ActionEvent e) {
                         loadShapes();
-                        folderSelector.removeAllItems();
-                        // TODO - Bug test this
-                        setupFolderSelector();
+                        if (folderSelector != null) {
+                            folderSelector.removeAllItems();
+                            if (folderNames != null) {
+                                setupFolderSelector();
+                            }
+                        }
                     }
                 });
         subToolBarSection.add(reloadButton);
@@ -152,6 +167,32 @@ public class PullShapes extends AlcModule implements AlcConstants {
                     }
                 });
         subToolBarSection.add(rotateButton);
+
+        // Whole illustrations
+        AlcSubToggleButton wholeButton = new AlcSubToggleButton("Whole", AlcUtil.getUrlPath("whole.png", getClassLoader()));
+        wholeButton.setSelected(whole);
+        wholeButton.setToolTipText("Stamp whole illustrations (every shape of a PDF page or an SVG file) instead of single shapes");
+        wholeButton.addActionListener(
+                new ActionListener() {
+
+                    public void actionPerformed(ActionEvent e) {
+                        whole = !whole;
+                    }
+                });
+        subToolBarSection.add(wholeButton);
+
+        // Original colors
+        AlcSubToggleButton colorsButton = new AlcSubToggleButton("Colours", AlcUtil.getUrlPath("colours.png", getClassLoader()));
+        colorsButton.setSelected(originalColors);
+        colorsButton.setToolTipText("Keep the colours of the stamps (the current opacity still applies) instead of the current colour");
+        colorsButton.addActionListener(
+                new ActionListener() {
+
+                    public void actionPerformed(ActionEvent e) {
+                        originalColors = !originalColors;
+                    }
+                });
+        subToolBarSection.add(colorsButton);
     }
 
     private void setupFolderSelector() {
@@ -167,89 +208,85 @@ public class PullShapes extends AlcModule implements AlcConstants {
         hasShapes = false;
         currentFolder = 0;
         shapeLists = null;
+        wholeLists = null;
         folderNames = null;
 
-        // Folder of the plugins
+        // Folder of the stamps
         File shapesDir = AlcPaths.shapesDir();
 
         // Filter for the folders not starting with '.'
-        FileFilter folderFilter = new  
+        FileFilter folderFilter = new FileFilter() {
 
-              FileFilter( ) {
-
-                   public boolean accept(File pathname) {
-                return (pathname.isDirectory() && !pathname.getName().startsWith(".")) ? true : false;
+            public boolean accept(File pathname) {
+                return pathname.isDirectory() && !pathname.getName().startsWith(".");
             }
         };
 
-        // Filter to check for PDFs
-        FilenameFilter pdfFilter = new  
+        // Filter for the stamp files: PDF and SVG
+        FilenameFilter stampFilter = new FilenameFilter() {
 
-              FilenameFilter(   ) {
-
-                    
-                     public boolean accept(File dir, String name) {
-                // MIME types not working on Linux?
-                if (Alchemy.OS == OS_LINUX) {
-                    return name.endsWith(".pdf") || name.endsWith(".PDF");
+            public boolean accept(File dir, String name) {
+                if (name.startsWith(".")) {
+                    return false;
                 }
-                File file = new File(dir, name);
-                String mime = MimeUtil.getMimeType(file.getAbsoluteFile());
-                return (mime.equals("application/pdf")) ? true : false;
+                String lower = name.toLowerCase();
+                if (lower.endsWith(".svg") || lower.endsWith(".pdf")) {
+                    return true;
+                }
+                // PDF files without the extension (MIME types are not working on Linux)
+                if (Alchemy.OS == OS_LINUX) {
+                    return false;
+                }
+                try {
+                    File file = new File(dir, name);
+                    return file.isFile() && "application/pdf".equals(MimeUtil.getMimeType(file.getAbsoluteFile()));
+                } catch (Exception ex) {
+                    return false;
+                }
             }
         };
 
-        // Folders in the root shapes folder
         File[] folders = shapesDir.listFiles(folderFilter);
-        // Pdf files in the root shapes folder
-        File[] rootPdfs = shapesDir.listFiles(pdfFilter);
+        if (folders == null) {
+            folders = new File[0];
+        }
+        java.util.Arrays.sort(folders);
+        File[] rootFiles = shapesDir.listFiles(stampFilter);
 
-        if (rootPdfs != null && rootPdfs.length > 0) {
+        ArrayList<ArrayList<AlcShape>> pieces = new ArrayList<ArrayList<AlcShape>>();
+        ArrayList<ArrayList<AlcShape[]>> wholes = new ArrayList<ArrayList<AlcShape[]>>();
+
+        if (rootFiles != null && rootFiles.length > 0) {
             hasRootShapes = true;
-            // Initialise the array holding all shape lists
-            // Equal to each folder plus the root folder
-            shapeLists = new ArrayList[folders.length + 1];
-            // Initialise the root shape list
-            ArrayList<AlcShape> rootShapes = new ArrayList<AlcShape>();
-            for (int i = 0; i < rootPdfs.length; i++) {
-                // Add the shapes from each pdf to the root shape list
-                rootShapes.addAll(AlcUtil.getPDFShapes(rootPdfs[i], true, 0));
-            }
-            // Add the rootShapes to the main array
-            shapeLists[0] = rootShapes;
-            hasShapes = true;
+            java.util.Arrays.sort(rootFiles);
+            ArrayList<AlcShape> rootPieces = new ArrayList<AlcShape>();
+            ArrayList<AlcShape[]> rootWholes = new ArrayList<AlcShape[]>();
+            loadFiles(rootFiles, rootPieces, rootWholes);
+            pieces.add(rootPieces);
+            wholes.add(rootWholes);
         }
 
         if (folders.length > 0) {
             hasFolders = true;
-            int count = 1;
-            // If there were not root pdfs
-            if (shapeLists == null) {
-                shapeLists = new ArrayList[folders.length];
-                count = 0;
-            }
-
             // Add an extra slot for 'ALL' shapes
             folderNames = new String[folders.length + 1];
             folderNames[0] = "All Shapes";
-            int folderNameCount = 1;
-
-            // For every folder
             for (int i = 0; i < folders.length; i++) {
-                // Get every pdf in each folder
-                File[] pdfs = AlcUtil.listFilesAsArray(folders[i], pdfFilter, true);
-                ArrayList<AlcShape> folderShapes = new ArrayList<AlcShape>();
-                for (int j = 0; j < pdfs.length; j++) {
-                    // Add the shapes from each pdf to the folder shape list
-                    folderShapes.addAll(AlcUtil.getPDFShapes(pdfs[j], true, 0));
-                }
-                // Store this folder of shapes in the main array
-                shapeLists[count] = folderShapes;
-                count++;
-                //System.out.println(folders[i].getName() + " " + folderShapes.size());
-                // Store the folder name
-                folderNames[folderNameCount] = folders[i].getName() + " Folder";
-                folderNameCount++;
+                File[] files = AlcUtil.listFilesAsArray(folders[i], stampFilter, true);
+                java.util.Arrays.sort(files);
+                ArrayList<AlcShape> folderPieces = new ArrayList<AlcShape>();
+                ArrayList<AlcShape[]> folderWholes = new ArrayList<AlcShape[]>();
+                loadFiles(files, folderPieces, folderWholes);
+                pieces.add(folderPieces);
+                wholes.add(folderWholes);
+                folderNames[i + 1] = folders[i].getName() + " Folder";
+            }
+        }
+
+        shapeLists = pieces.toArray(new ArrayList[pieces.size()]);
+        wholeLists = wholes.toArray(new ArrayList[wholes.size()]);
+        for (ArrayList<AlcShape> list : pieces) {
+            if (!list.isEmpty()) {
                 hasShapes = true;
             }
         }
@@ -258,9 +295,62 @@ public class PullShapes extends AlcModule implements AlcConstants {
         }
     }
 
-    private void addRandomShape(MouseEvent e) {
+    /** Read the stamps of PDF and SVG files: single shapes, and whole illustrations */
+    private void loadFiles(File[] files, ArrayList<AlcShape> pieces, ArrayList<AlcShape[]> wholes) {
+        for (File file : files) {
+            if (file.getName().toLowerCase().endsWith(".svg")) {
+                List<AlcShape> shapes = AlcUtil.getSVGShapes(file);
+                for (AlcShape shape : shapes) {
+                    pieces.add(moveToOrigin(new AlcShape[]{shape})[0]);
+                }
+                if (!shapes.isEmpty()) {
+                    wholes.add(moveToOrigin(shapes.toArray(new AlcShape[shapes.size()])));
+                }
+            } else {
+                java.util.Collection<AlcShape> shapes = AlcUtil.getPDFShapes(file, true, 0);
+                if (shapes != null) {
+                    pieces.addAll(shapes);
+                }
+                for (List<AlcShape> page : AlcUtil.getPDFIllustrations(file)) {
+                    wholes.add(moveToOrigin(page.toArray(new AlcShape[page.size()])));
+                }
+            }
+        }
+    }
 
-        // The folder to get a shape from
+    /** Copies of the shapes, moved together so their bounds start at 0,0 */
+    private static AlcShape[] moveToOrigin(AlcShape[] group) {
+        Rectangle2D bounds = groupBounds(group);
+        AffineTransform at = AffineTransform.getTranslateInstance(-bounds.getX(), -bounds.getY());
+        AlcShape[] out = new AlcShape[group.length];
+        for (int i = 0; i < group.length; i++) {
+            out[i] = (AlcShape) group[i].clone();
+            out[i].setPath(transformed(group[i].getPath(), at));
+        }
+        return out;
+    }
+
+    private static Rectangle2D groupBounds(AlcShape[] group) {
+        Rectangle2D bounds = null;
+        for (AlcShape shape : group) {
+            Rectangle2D b = shape.getPath().getBounds2D();
+            if (bounds == null) {
+                bounds = b;
+            } else {
+                bounds.add(b);
+            }
+        }
+        return bounds == null ? new Rectangle2D.Double() : bounds;
+    }
+
+    private static GeneralPath transformed(GeneralPath path, AffineTransform at) {
+        GeneralPath out = (GeneralPath) path.clone();
+        out.transform(at);
+        return out;
+    }
+
+    /** The list index for the current folder ("All Shapes" picks a random one) */
+    private int listIndex() {
         int folder = currentFolder;
         if (!hasRootShapes) {
             folder = currentFolder - 1;
@@ -269,31 +359,76 @@ public class PullShapes extends AlcModule implements AlcConstants {
         if (currentFolder == 0 && hasFolders) {
             folder = (int) math.random(shapeLists.length);
         }
-        int rand = (int) math.random(shapeLists[folder].size());
-        if (shapeLists[folder].size() > 0) {
-            AlcShape shape = (AlcShape) shapeLists[folder].get(rand);
-            // Clone the shape
-            AlcShape cloneShape = (AlcShape) shape.clone();
-            if (scale) {
-                // Scale it
-                float scaleFactor = math.random(0.1F, size);
-                cloneShape.scale(scaleFactor, scaleFactor);
-            }
-            if (rotate) {
-                // Rotate it
-                float rotation = math.random(0.1F, 57.2958F);
-                cloneShape.rotate(rotation);
-            }
-            // Move it into place
-            Rectangle bounds = cloneShape.getBounds();
-            int x = e.getX() - (bounds.width >> 1);
-            int y = e.getY() - (bounds.height >> 1);
-            cloneShape.move(x, y);
+        return Math.max(0, Math.min(shapeLists.length - 1, folder));
+    }
 
-            cloneShape.setup();
-            canvas.createShapes.add(cloneShape);
-            canvas.redraw();
+    private void addRandomShape(MouseEvent e) {
+        int folder = listIndex();
+        if (whole && wholeLists[folder].size() > 0) {
+            addRandomIllustration(e, folder);
+            return;
         }
+        if (shapeLists[folder].size() == 0) {
+            return;
+        }
+        int rand = (int) math.random(shapeLists[folder].size());
+        AlcShape shape = (AlcShape) shapeLists[folder].get(rand);
+        // Clone the shape
+        AlcShape cloneShape = (AlcShape) shape.clone();
+        float scaleFactor = 1F;
+        if (scale) {
+            // Scale it
+            scaleFactor = math.random(0.1F, size);
+            cloneShape.scale(scaleFactor, scaleFactor);
+        }
+        if (rotate) {
+            // Rotate it
+            float rotation = math.random(0.1F, 57.2958F);
+            cloneShape.rotate(rotation);
+        }
+        // Move it into place
+        Rectangle bounds = cloneShape.getBounds();
+        int x = e.getX() - (bounds.width >> 1);
+        int y = e.getY() - (bounds.height >> 1);
+        cloneShape.move(x, y);
+
+        cloneShape.setup();
+        if (originalColors && cloneShape.hasSourceColor()) {
+            cloneShape.applySource(canvas.getOpacity());
+            cloneShape.setLineWidth(cloneShape.getLineWidth() * scaleFactor);
+        }
+        cloneShape.setStampId(++stampCounter);
+        canvas.createShapes.add(cloneShape);
+        canvas.redraw();
+    }
+
+    /** Stamp a whole illustration, scaled and rotated as one */
+    private void addRandomIllustration(MouseEvent e, int folder) {
+        int rand = (int) math.random(wholeLists[folder].size());
+        AlcShape[] group = (AlcShape[]) wholeLists[folder].get(rand);
+        Rectangle2D bounds = groupBounds(group);
+
+        float scaleFactor = scale ? math.random(0.1F, size) : 1F;
+        double rotation = rotate ? math.random(0.1F, 57.2958F) : 0;
+        AffineTransform at = new AffineTransform();
+        at.translate(e.getX(), e.getY());
+        at.rotate(rotation);
+        at.scale(scaleFactor, scaleFactor);
+        at.translate(-bounds.getCenterX(), -bounds.getCenterY());
+
+        int stampId = ++stampCounter;
+        for (AlcShape shape : group) {
+            AlcShape cloneShape = (AlcShape) shape.clone();
+            cloneShape.setPath(transformed(shape.getPath(), at));
+            cloneShape.setup();
+            if (originalColors && cloneShape.hasSourceColor()) {
+                cloneShape.applySource(canvas.getOpacity());
+                cloneShape.setLineWidth(cloneShape.getLineWidth() * scaleFactor);
+            }
+            cloneShape.setStampId(stampId);
+            canvas.createShapes.add(cloneShape);
+        }
+        canvas.redraw();
     }
     //expandedPath = (GeneralPath) currentPath.createTransformedShape(getScaleTransform(adjustedLevel, rect));
 //    private GeneralPath scaleShape(GeneralPath gp){

@@ -342,7 +342,8 @@ public class AlcColourIO implements AlcConstants{
         private void getColourLoversData(int i){
             String nextLine;
 
-            urlString="http://www.colourlovers.com/api/palettes/top?numResults=1&resultOffset="+
+            // https: Java does not follow the site's redirection from http to https
+            urlString="https://www.colourlovers.com/api/palettes/top?numResults=1&resultOffset="+
                         Integer.toString(i);
             URL url = null;
             URLConnection urlConn = null;
@@ -352,6 +353,9 @@ public class AlcColourIO implements AlcConstants{
             try{
                 url  = new URL(urlString);
                 urlConn = url.openConnection();
+                urlConn.setRequestProperty("User-Agent", "Alchemy/" + Alchemy.class.getPackage().getImplementationVersion() + " (Java)");
+                urlConn.setConnectTimeout(10000);
+                urlConn.setReadTimeout(15000);
                 inStream = new InputStreamReader( 
                                 urlConn.getInputStream());
                 buff= new BufferedReader(inStream);

@@ -58,6 +58,9 @@ public abstract class AlcAbstractToolBar extends JPanel implements AlcConstants 
     void refreshColorButton() {
     }
 
+    void refreshExactRender() {
+    }
+
     void refreshTransparencySlider() {
     }
 

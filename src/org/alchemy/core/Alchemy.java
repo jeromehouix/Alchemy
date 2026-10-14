@@ -233,21 +233,28 @@ public class Alchemy implements AlcConstants {
 
             //System.setProperty("java.library.path", System.getProperty("java.library.path") + File.pathSeparator + "lib");
 
+            boolean modern = AlcPreferences.readModern();
             if (OS == OS_MAC) {
                 System.setProperty("apple.laf.useScreenMenuBar", "true");
                 //System.setProperty("apple.awt.draggableWindowBackground", "true");
                 //System.setProperty("com.apple.mrj.application.growbox.intrudes","false");
                 System.setProperty("apple.awt.application.name", "Alchemy");
                 // Quaqua no longer works with modern Java,
-                // the built-in Aqua look and feel is used instead
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                // the built-in Aqua look and feel is used instead (classic interfaces)
+                if (!modern) {
+                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                }
 
             } else {
 //                if(PLATFORM == WINDOWS){
 //                    System.setProperty("sun.java2d.noddraw", "true");
 //                }
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                if (!modern) {
+                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                }
             }
+            // Modern interface: FlatLaf, light or dark (sets the macOS appearance before any window)
+            AlcTheme.setup(modern, AlcPreferences.readAppearance());
 
         // Custom repaint class to manage transparency and redraw better
         // RepaintManager.setCurrentManager(new AlcRepaintManager());

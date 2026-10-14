@@ -40,6 +40,20 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
     Color color;
     /** Alpha of this shape */
     int alpha = 255;
+    /** Exact opacity of this shape (0-1), finer than the 8-bit alpha.
+     *  Used by the exact render and the SVG export. Negative: derived from alpha */
+    private float opacity = -1f;
+    /** Gesture this shape belongs to (shapes committed together), 0 if unknown */
+    int gestureId = 0;
+    /** Stamp this shape belongs to (shapes stamped together), 0 if none */
+    int stampId = 0;
+    /** Original color of an imported shape (stamp read from a PDF or SVG), null if unknown */
+    private Color sourceColor = null;
+    /** Original opacity of an imported shape, from 0 to 1 */
+    private float sourceOpacity = 1f;
+    /** Original style (STYLE_FILL / STYLE_STROKE) and line width of an imported shape */
+    private int sourceStyle = STYLE_FILL;
+    private float sourceLineWidth = 1f;
     /** Style of this shape - (1) LINE or (2) SOLID FILL */
     int style;
     /** The Gradient of this shape (if available) */
@@ -181,6 +195,7 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
      */
     public void setup(Color color, int alpha, int style, float lineWidth) {
         this.alpha = alpha;
+        this.opacity = -1f;
         setColor(color);
         this.style = style;
         if (lineWidth < 0) {
@@ -194,6 +209,7 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
      */
     public void setup() {
         this.alpha = Alchemy.canvas.getAlpha();
+        this.opacity = Alchemy.canvas.getOpacity();
         setColor(Alchemy.canvas.getColor());
         this.style = Alchemy.canvas.getStyle();
         if (Alchemy.canvas.getLineWidth() < 0) {
@@ -573,7 +589,64 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
      */
     public void setAlpha(int alpha) {
         this.alpha = alpha;
+        this.opacity = -1f;
         setColor(this.color);
+    }
+
+    /** Exact opacity of this shape, from 0 to 1 */
+    public float getOpacity() {
+        return opacity >= 0 ? opacity : alpha / 255f;
+    }
+
+    /** Set the exact opacity (0-1). The 8-bit alpha used on screen follows it,
+     *  never dropping to 0 for a visible opacity */
+    public void setOpacity(float opacity) {
+        this.opacity = Math.max(0f, Math.min(1f, opacity));
+        this.alpha = AlcUtil.opacityToAlpha(this.opacity);
+        setColor(this.color);
+    }
+
+    /** True if the opacity was set more precisely than the 8-bit alpha */
+    public boolean hasExactOpacity() {
+        return opacity >= 0;
+    }
+
+    /** Remember the original look of an imported shape (stamp) */
+    public void setSource(Color color, float opacity, int style, float lineWidth) {
+        this.sourceColor = color;
+        this.sourceOpacity = Math.max(0f, Math.min(1f, opacity));
+        this.sourceStyle = style;
+        this.sourceLineWidth = lineWidth;
+    }
+
+    public boolean hasSourceColor() {
+        return sourceColor != null;
+    }
+
+    /**
+     * Give this shape its original color and style, with the original opacity
+     * multiplied by the given opacity (usually the current opacity of the canvas)
+     */
+    public void applySource(float opacity) {
+        if (sourceColor == null) {
+            return;
+        }
+        this.color = sourceColor;
+        this.style = sourceStyle;
+        this.lineWidth = sourceLineWidth;
+        setOpacity(sourceOpacity * opacity);
+    }
+
+    public int getGestureId() {
+        return gestureId;
+    }
+
+    public int getStampId() {
+        return stampId;
+    }
+
+    public void setStampId(int stampId) {
+        this.stampId = stampId;
     }
 
     /**
@@ -794,6 +867,8 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
         //Deep copy
         AlcShape tempShape = new AlcShape(this.path, this.color, this.alpha, this.style, this.lineWidth);
         cloneAttributes(tempShape);
+        // The constructor resets the fill rule, keep the original one
+        tempShape.path.setWindingRule(this.path.getWindingRule());
         return tempShape;
     }
 
@@ -833,6 +908,13 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
     /** Clone other attributes of this shape */
     private void cloneAttributes(AlcShape tempShape) {
         tempShape.setAlpha(this.alpha);
+        tempShape.opacity = this.opacity;
+        tempShape.gestureId = this.gestureId;
+        tempShape.stampId = this.stampId;
+        tempShape.sourceColor = this.sourceColor;
+        tempShape.sourceOpacity = this.sourceOpacity;
+        tempShape.sourceStyle = this.sourceStyle;
+        tempShape.sourceLineWidth = this.sourceLineWidth;
         tempShape.setStyle(this.style);
         tempShape.setLineWidth(this.lineWidth);
         tempShape.setTotalPoints(this.totalPoints);

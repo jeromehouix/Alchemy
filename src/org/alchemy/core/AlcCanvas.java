@@ -55,6 +55,13 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
 //    private Color color;
     /** Global Shape Foreground Alpha */
     private int alpha = 255;
+    /** Exact opacity (0-1), finer than the 8-bit alpha */
+    private float opacity = 1f;
+    /** Display the drawing with the high precision renderer instead of the 8-bit canvas */
+    private boolean exactRender = false;
+    private final AlcExactRenderer exactRenderer = new AlcExactRenderer();
+    /** Counter numbering the gestures, used to group shapes in the SVG export */
+    private int gestureCounter = 0;
     private boolean alphaLocked = false;
     
     // The current color is stored here.  An array is used so that
@@ -268,8 +275,15 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         }
 
+        // Exact render: the committed shapes are composited in high precision
+        boolean exact = exactRender && !Alchemy.window.isTransparent();
+        if (exact) {
+            boolean showImage = imageDisplay && image != null;
+            g2.drawImage(exactRenderer.render(shapes, bgColor,
+                    showImage ? getImage() : null, showImage ? getImageLocation() : null,
+                    w, h, smoothing), 0, 0, null);
         // Draw the flattened buffImage
-        if (canvasImage != null && !drawUnder) {
+        } else if (canvasImage != null && !drawUnder) {
             g2.drawImage(canvasImage, 0, 0, null);
         }
         if (redraw) {
@@ -293,7 +307,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
         }
 
         // Draw the image on top of the current shapes
-        if (drawUnder) {
+        if (drawUnder && !exact) {
             g2.drawImage(canvasImage, 0, 0, null);
         }
 
@@ -569,11 +583,23 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     public void resizeCanvas(Dimension windowSize) {
         // Allow for the left hand toolbar if in 'simple' mode
         int x = 0;
+        int y = 0;
         if (Alchemy.preferences.simpleToolBar) {
             x = Alchemy.toolBar.toolBarWidth;
             windowSize.width -= Alchemy.toolBar.toolBarWidth;
         }
-        this.setBounds(x, 0, windowSize.width, windowSize.height);
+        // Modern interface: the canvas sits under the docked toolbar
+        if (AlcTheme.isModern() && !Alchemy.preferences.simpleToolBar) {
+            Container content = Alchemy.window.getContentPane();
+            if (content != null && content.getHeight() > 0) {
+                windowSize = new Dimension(content.getWidth(), content.getHeight());
+            }
+            if (Alchemy.toolBar.isToolBarVisible()) {
+                y = Alchemy.toolBar.getTotalHeight();
+                windowSize = new Dimension(windowSize.width, windowSize.height - y);
+            }
+        }
+        this.setBounds(x, y, windowSize.width, windowSize.height);
     }
 
     /** Clear all shapes and then redraws the canvas */
@@ -644,6 +670,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
 
     /** Commit all shapes to the main {@link #shapes} array and render the image buffer */
     public void commitShapes() {
+        tagCommittedShapes();
         // Add the createShapes and affectShapes to the main array
         // Add to the bottom if drawUnder is on
         if (drawUnder) {
@@ -838,6 +865,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
 
     /** Commit all create shapes to the main shapes array */
     public void commitCreateShapes() {
+        tagCommittedShapes();
         canvasImage = renderCanvas(false);
         for (int i = 0; i < createShapes.size(); i++) {
             shapes.add(createShapes.get(i));
@@ -886,6 +914,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
 
     /** Commit all affect shapes to the main shapes array */
     public void commitAffectShapes() {
+        tagCommittedShapes();
         canvasImage = renderCanvas(false);
 
         for (int i = 0; i < affectShapes.size(); i++) {
@@ -945,7 +974,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
                 currentAlphaSet[currentColorIndex] = alpha;
             }
 
-            if (Alchemy.preferences.paletteAttached || Alchemy.preferences.simpleToolBar) {
+            if (Alchemy.preferences.paletteAttached || Alchemy.preferences.simpleToolBar || AlcTheme.isModern()) {
                 Alchemy.toolBar.refreshColorButton();
             }
         } catch (IllegalArgumentException ex) {
@@ -985,8 +1014,64 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
      */
     public void setAlpha(int alpha) {
             this.alpha = alpha;
+            this.opacity = alpha / 255f;
             setColor(this.getColor());
             Alchemy.toolBar.refreshTransparencySlider();
+    }
+
+    boolean isExactRender() {
+        return exactRender;
+    }
+
+    /** Switch between the classic 8-bit canvas and the high precision render */
+    void setExactRender(boolean exactRender) {
+        this.exactRender = exactRender;
+        exactRenderer.invalidate();
+        if (!exactRender) {
+            canvasImage = renderCanvas(true);
+        }
+        repaint();
+    }
+
+    /**
+     * Render all the committed shapes in high precision, from scratch
+     * @return  A new renderer holding the result, for export
+     */
+    AlcExactRenderer renderExact() {
+        AlcExactRenderer renderer = new AlcExactRenderer();
+        java.awt.Rectangle visibleRect = this.getVisibleRect();
+        boolean showImage = imageDisplay && image != null;
+        renderer.render(shapes, bgColor, showImage ? getImage() : null, showImage ? getImageLocation() : null,
+                visibleRect.width, visibleRect.height, smoothing);
+        return renderer;
+    }
+
+    /** Get the exact opacity, from 0 to 1 */
+    public float getOpacity() {
+        return opacity;
+    }
+
+    /** Set the exact opacity (0-1), finer than the 8-bit alpha.
+     *  The alpha used on screen follows it */
+    public void setOpacity(float opacity) {
+        this.opacity = Math.max(0f, Math.min(1f, opacity));
+        this.alpha = AlcUtil.opacityToAlpha(this.opacity);
+        setColor(this.getColor());
+        Alchemy.toolBar.refreshTransparencySlider();
+    }
+
+    /** Give the shapes about to be committed their gesture number
+     *  and, when drawn with the current alpha, the exact current opacity */
+    private void tagCommittedShapes() {
+        gestureCounter++;
+        for (ArrayList<AlcShape> list : new ArrayList[]{createShapes, affectShapes}) {
+            for (AlcShape shape : list) {
+                shape.gestureId = gestureCounter;
+                if (!shape.hasExactOpacity() && shape.getGradientPaint() == null && shape.alpha == this.alpha) {
+                    shape.setOpacity(this.opacity);
+                }
+            }
+        }
     }
 
     /** Returns the state of alpha lock */
@@ -1623,7 +1708,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     public void mousePressed(MouseEvent event) {
         penDown = true;
         // Hide the toolbar when clicking on the canvas
-        if (!Alchemy.preferences.paletteAttached && Alchemy.toolBar.isToolBarVisible() &&
+        if (!Alchemy.preferences.paletteAttached && Alchemy.toolBar.isToolBarVisible() && !AlcTheme.isModern() &&
                 !Alchemy.preferences.simpleToolBar && event.getY() >= Alchemy.toolBar.getTotalHeight()) {
             Alchemy.toolBar.setToolBarVisible(false);
         }

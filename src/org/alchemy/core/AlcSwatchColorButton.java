@@ -88,6 +88,9 @@ class AlcSwatchColorButton extends JComponent implements MouseListener, AlcConst
     
     void clear(){
         Dimension d = colorPanel.getSize();
+        if (d.width <= 0 || d.height <= 0) {
+            return;
+        }
         BufferedImage image = new BufferedImage((int)d.getWidth(), (int)d.getHeight(), BufferedImage.TYPE_INT_ARGB);
         colorPanelImage = image;
         colorPanel.repaint();
@@ -97,6 +100,10 @@ class AlcSwatchColorButton extends JComponent implements MouseListener, AlcConst
     /** Get the color panel image */
     private Image getColorPanelImage() {
         Dimension d = colorPanel.getSize();
+        // Not laid out yet
+        if (d.width <= 0 || d.height <= 0) {
+            return colorPanelImage;
+        }
         BufferedImage image = new BufferedImage((int)d.getWidth(), (int)d.getHeight(), BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = image.createGraphics();
         int baseWidth;

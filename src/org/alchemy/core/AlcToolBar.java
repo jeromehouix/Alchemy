@@ -76,7 +76,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     /** Detach toolbar button */ 
     private JButton detachButton;
     /** Transparency slider */
-    private AlcSlider transparencySlider;
+    private AlcOpacitySlider transparencySlider;
     /** Sections within the sub toolbar - either loaded or not */
     private AlcToolBarSubSection[] affectSubToolBarSections;
     /** The create section within the sub toolbar - index of the loaded section */
@@ -107,6 +107,10 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     
     private boolean swatched=false;
     private AbstractAction toolBarFlipAction;
+    /** Modern interface: one docked row with the tools and the colors */
+    private final boolean modern = AlcTheme.isModern();
+    private AlcModernRow modernRow;
+    private AlcToggleButton exactButton;
     
  
     /** Schedule update for the Foreground/Background button */
@@ -129,7 +133,11 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         // Flip between main and swatch toolbars
         toolBarFlipAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                flipToolBar();
+                if (modern) {
+                    setToolBarVisible(!toolBarVisible);
+                } else {
+                    flipToolBar();
+                }
             }           
         };
         
@@ -138,10 +146,17 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
                
         // Create and add the main toolbar      
         mainToolBar = loadToolBar();
-        toolBars.add("Center", mainToolBar);
         
         // Create the swatch toolbar, don't show till toolbar flip
         swatchToolBar = loadSwatchBar();
+
+        if (modern) {
+            // Both faces side by side in one row
+            modernRow = new AlcModernRow(mainToolBar, swatchToolBar, swatchTools);
+            toolBars.add("Center", modernRow);
+        } else {
+            toolBars.add("Center", mainToolBar);
+        }
         
         // Create and add the sub toolbar
         subToolBar = loadSubToolBar();
@@ -157,7 +172,9 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         AbstractAction toolBarAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
-                if (!Alchemy.preferences.paletteAttached) {
+                if (modern) {
+                    setToolBarVisible(!toolBarVisible);
+                } else if (!Alchemy.preferences.paletteAttached) {
                     if (toolBarVisible) {
                         setToolBarVisible(false);
                         toolBarKeyedOn = false;
@@ -199,7 +216,10 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         this.windowSize = new Dimension(Alchemy.window.getWindowSize().width, mainToolBar.getHeight());
 
         // Turn off the visibility until the mouse enters the top of the screen
-        setToolBarVisible(false);
+        // (the modern toolbar stays docked)
+        if (!modern) {
+            setToolBarVisible(false);
+        }
     }
     
     private AlcToolBarMain loadSwatchBar(){
@@ -231,7 +251,9 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         deswatchButton.setup("", getS("flipToolbarDescription"), AlcUtil.getUrlPath("switch-swatch.png"));
         //total top margin is 8 - 2 by Jpanel, 6 here
         deswatchButton.setBorder(BorderFactory.createEmptyBorder(6, 5, 6, 5));
-        swatchTools.add(deswatchButton);
+        if (!modern) {
+            swatchTools.add(deswatchButton);
+        }
  
         //////////////////////////////////////////////////////////////
         // Swatch Menu
@@ -385,15 +407,14 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         // TRANSPARENCY SLIDER
         //////////////////////////////////////////////////////////////
         
-        transparencySlider = new AlcSlider(getS("transparencyTitle"), getS("transparencyDescription"), 0, 255, 254);
+        transparencySlider = new AlcOpacitySlider(getS("opacityTitle"), getS("opacityDescription"), Alchemy.canvas.getOpacity());
         transparencySlider.addChangeListener(
                 new ChangeListener() {
 
                     public void stateChanged(ChangeEvent e) {
 
-                        //JSlider source = (JSlider) e.getSource();
                         if (!transparencySlider.getValueIsAdjusting()) {
-                            Alchemy.canvas.setAlpha(transparencySlider.getValue());
+                            Alchemy.canvas.setOpacity(transparencySlider.getOpacity());
                             refreshColorButton();
                             swatchColorButton.refresh();
                         }
@@ -422,12 +443,9 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         
         AbstractAction transparencyUpAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                if(Alchemy.canvas.getAlpha()<255){
-                    if(Alchemy.canvas.getAlpha()>245){
-                        Alchemy.canvas.setAlpha(255);
-                    }else{
-                        Alchemy.canvas.setAlpha(Alchemy.canvas.getAlpha()+10);
-                    }
+                if(Alchemy.canvas.getOpacity()<1f){
+                    // One notch up the logarithmic opacity scale
+                    Alchemy.canvas.setOpacity(AlcOpacitySlider.nudge(Alchemy.canvas.getOpacity(), 1));
                     swatchColorButton.refresh();
                     refreshColorButton();
                 }
@@ -435,12 +453,9 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         };
         AbstractAction transparencyDownAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                if(Alchemy.canvas.getAlpha()>0){
-                    if(Alchemy.canvas.getAlpha()<10){
-                        Alchemy.canvas.setAlpha(0);
-                    }else{
-                        Alchemy.canvas.setAlpha(Alchemy.canvas.getAlpha()-10);
-                    }
+                if(Alchemy.canvas.getOpacity()>0f){
+                    // One notch down the logarithmic opacity scale
+                    Alchemy.canvas.setOpacity(AlcOpacitySlider.nudge(Alchemy.canvas.getOpacity(), -1));
                     swatchColorButton.refresh();
                     refreshColorButton();
                 }
@@ -660,7 +675,9 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         AlcButton reswatchButton = new AlcButton(toolBarFlipAction);
         reswatchButton.setup("", getS("flipToolbarDescription"), AlcUtil.getUrlPath("switch-tools.png"));
         reswatchButton.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
-        toolBar.add(reswatchButton);
+        if (!modern) {
+            toolBar.add(reswatchButton);
+        }
 
         //////////////////////////////////////////////////////////////
         // STYLE BUTTON
@@ -999,6 +1016,23 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
                 Alchemy.canvas.clear();
             }
         };
+        //////////////////////////////////////////////////////////////
+        // EXACT RENDER BUTTON (modern interface)
+        //////////////////////////////////////////////////////////////
+        if (modern) {
+            exactButton = new AlcToggleButton();
+            exactButton.setAction(new AbstractAction() {
+
+                public void actionPerformed(ActionEvent e) {
+                    Alchemy.canvas.setExactRender(exactButton.isSelected());
+                    Alchemy.menuBar.refreshExactRender();
+                }
+            });
+            exactButton.setup(getS("exactRenderShort"), getS("exactRenderDescription"), AlcUtil.getUrlPath("exact.png"));
+            exactButton.setSelected(Alchemy.canvas.isExactRender());
+            toolBar.add(exactButton);
+        }
+
         AlcButton clearButton = new AlcButton(clearAction);
         clearButton.setup(clearTitle, getS("clearDescription"), AlcUtil.getUrlPath("clear.png"));
         // Shortcuts - Modifier Delete/Backspace
@@ -1037,7 +1071,10 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
             }
         });
 
-        topAlign.add(detachButton);
+        // The modern toolbar is always docked
+        if (!modern) {
+            topAlign.add(detachButton);
+        }
 
         toolBarGroup.add(toolBar, BorderLayout.LINE_START);
         toolBarGroup.add(topAlign, BorderLayout.LINE_END);
@@ -1056,7 +1093,17 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
 
     @Override
     void resizeToolBar( Dimension windowSize) {
+        int previousHeight = totalHeight;
+        if (modern) {
+            this.windowSize = windowSize;
+            // The row may wrap at this width
+            calculateTotalHeight();
+        }
         this.setBounds(0, 0, windowSize.width, totalHeight);
+        // The docked toolbar changed height: move the canvas under it
+        if (modern && previousHeight != totalHeight && Alchemy.window != null && Alchemy.canvas != null) {
+            Alchemy.canvas.resizeCanvas(Alchemy.window.getSize());
+        }
         this.windowSize = windowSize;
         this.revalidate();
         this.repaint();
@@ -1092,6 +1139,10 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
      */
     @Override
     void toggleToolBar( int y, boolean startTimer) {
+        // The modern toolbar does not appear and disappear with the mouse
+        if (modern) {
+            return;
+        }
         if (y < 10) {
             // Show the toolbar
             setToolBarVisible(true);
@@ -1125,6 +1176,23 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     /** Set the visibility of the UI Toolbar */
     @Override
     void setToolBarVisible( boolean visible) {
+        if (modern) {
+            // Docked: the canvas moves under the bars, its events stay on
+            if (visible != toolBarVisible) {
+                this.setVisible(visible);
+                toolBarVisible = visible;
+                if (!visible) {
+                    colorButton.hidePopup();
+                    createButton.hidePopup();
+                    swatchMenuButton.hidePopup();
+                    if (affectButton != null) {
+                        affectButton.hidePopup();
+                    }
+                }
+                Alchemy.window.layoutBars();
+            }
+            return;
+        }
         if (visible != toolBarVisible) {
             this.setVisible(visible);
             toolBarVisible = visible;
@@ -1159,7 +1227,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     @Override
     void calculateTotalHeight() {
         // Start with the main toolbar height
-        int newTotalHeight = mainToolBar.getHeight();
+        int newTotalHeight = modern ? modernRow.heightFor(windowSize != null ? windowSize.width : modernRow.getWidth()) : mainToolBar.getHeight();
         if (subToolBar.isVisible()) {
             newTotalHeight += subToolBar.getHeight();
         }
@@ -1483,8 +1551,15 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     }
 
     @Override
+    void refreshExactRender() {
+        if (exactButton != null) {
+            exactButton.setSelected(Alchemy.canvas.isExactRender());
+        }
+    }
+
+    @Override
     void refreshTransparencySlider() {
-        transparencySlider.setValue(Alchemy.canvas.getAlpha());
+        transparencySlider.setOpacity(Alchemy.canvas.getOpacity());
     }
     
     /** updates the swatch move color l/r buttons */

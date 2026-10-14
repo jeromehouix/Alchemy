@@ -146,6 +146,12 @@ class AlcPreferences implements AlcConstants {
     boolean transparentFullscreen;
     /** Simplified toolbar for kids */
     boolean simpleToolBar;
+    /** Modern interface: one docked toolbar, flat style, vector icons */
+    boolean modernToolBar;
+    /** Appearance of the modern interface: system, light or dark */
+    int appearance;
+    /** Selector of the appearance (system, light, dark) of the modern interface */
+    private JComboBox appearanceBox;
     //////////////////////////////////////////////////////////////
     // DRAWING
     //////////////////////////////////////////////////////////////
@@ -196,6 +202,12 @@ class AlcPreferences implements AlcConstants {
         canvasSize = stringToDimension(prefs.get("Canvas Size", null));
         transparentFullscreen = prefs.getBoolean("Transparent Fullscreen", false);
         simpleToolBar = prefs.getBoolean("Simple ToolBar", false);
+        modernToolBar = readModern();
+        appearance = readAppearance();
+        // The modern toolbar is always docked: no separate palette
+        if (modernToolBar && !simpleToolBar) {
+            paletteAttached = false;
+        }
 
         smoothing = prefs.getBoolean("Smoothing", true);
         lineSmoothing = prefs.getBoolean("Line Smoothing", true);
@@ -206,6 +218,25 @@ class AlcPreferences implements AlcConstants {
         undoDepth = prefs.getInt("Undo Depth", 0);
         locale = prefs.get("Locale", "system");
 
+    }
+
+    /** Read the modern interface preference, before the preferences are loaded */
+    static boolean readModern() {
+        Preferences p = Preferences.userNodeForPackage(AlcPreferences.class);
+        return !p.getBoolean("Simple ToolBar", false) && p.getBoolean("Modern ToolBar", true);
+    }
+
+    /** Read the appearance preference, before the preferences are loaded */
+    static int readAppearance() {
+        return Preferences.userNodeForPackage(AlcPreferences.class).getInt("Appearance", AlcTheme.APPEARANCE_SYSTEM);
+    }
+
+    /** Index of the interface in the selector: standard 0, simple 1, modern 2 */
+    private int interfaceIndex() {
+        if (simpleToolBar) {
+            return 1;
+        }
+        return modernToolBar ? 2 : 0;
     }
 
     /** Save the changes on exit */
@@ -228,6 +259,8 @@ class AlcPreferences implements AlcConstants {
         prefs.putBoolean("Smoothing", Alchemy.canvas.isSmoothing());
         prefs.putBoolean("Line Smoothing", AlcShape.isLineSmoothing());
         prefs.putBoolean("Simple ToolBar", simpleToolBar);
+        prefs.putBoolean("Modern ToolBar", modernToolBar);
+        prefs.putInt("Appearance", appearance);
         prefs.putBoolean("Transparent Fullscreen", transparentFullscreen);
 
         prefs.putInt("Background Color", Alchemy.canvas.getBackgroundColor().getRGB());
@@ -382,7 +415,9 @@ class AlcPreferences implements AlcConstants {
         }
         bgPanel.setBounds(0, tabPanelHeight, prefsWindowSize.width + bgPanelWidthOffset, prefsWindowSize.height - tabPanelHeight - bgPanelHeightOffset);
         bgPanel.setLayout(new BorderLayout());
-        bgPanel.setBackground(COLOR_UI_HIGHLIGHT);
+        if (!AlcTheme.isModern()) {
+            bgPanel.setBackground(COLOR_UI_HIGHLIGHT);
+        }
         bgPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         masterPanel.add(bgPanel);
 
@@ -420,11 +455,8 @@ class AlcPreferences implements AlcConstants {
         sessionFileRenameDate.setText(sessionFileDateFormat);
         sessionDirectoryTextField.setText(sessionPath);
         recordOnStartUp.setSelected(sessionRecordingState);
-        if (Alchemy.preferences.simpleToolBar) {
-            interfaceBox.setSelectedIndex(1);
-        } else {
-            interfaceBox.setSelectedIndex(0);
-        }
+        interfaceBox.setSelectedIndex(interfaceIndex());
+        appearanceBox.setSelectedIndex(appearance);
         if (currentTab == SESSION) {
             bgPanel.remove(sessionPanel);
             bgPanel.add(generalPanel, BorderLayout.PAGE_START);
@@ -483,10 +515,14 @@ class AlcPreferences implements AlcConstants {
 //                        g2.setPaint(unifiedLineColor);
 //                        g2.drawLine(0, heightMinusOne, targetWidth, heightMinusOne);
 //                    } else {
-                    GradientPaint gradientPaint = new GradientPaint(0, 0, COLOR_UI_START, 0, tabPanelHeight, COLOR_UI_END, true);
-                    g2.setPaint(gradientPaint);
+                    // Modern interface: flat header in the theme colors
+                    if (AlcTheme.isModern()) {
+                        g2.setPaint(AlcTheme.bar());
+                    } else {
+                        g2.setPaint(new GradientPaint(0, 0, COLOR_UI_START, 0, tabPanelHeight, COLOR_UI_END, true));
+                    }
                     g2.fillRect(0, 0, targetWidth, tabPanelHeight);
-                    g2.setPaint(COLOR_UI_LINE);
+                    g2.setPaint(AlcTheme.isModern() ? AlcTheme.line() : COLOR_UI_LINE);
                     g2.drawLine(0, heightMinusOne, targetWidth, heightMinusOne);
 //                    }
                 }
@@ -559,14 +595,26 @@ class AlcPreferences implements AlcConstants {
         interfaceSelector.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
         interfaceSelector.add(new JLabel(Alchemy.bundle.getString("interface") + ": "));
 
-        String[] interfaceType = {Alchemy.bundle.getString("standard"), Alchemy.bundle.getString("simple")};
+        String[] interfaceType = {Alchemy.bundle.getString("standard"), Alchemy.bundle.getString("simple"), Alchemy.bundle.getString("modern")};
         interfaceBox = new JComboBox(interfaceType);
-        if (Alchemy.preferences.simpleToolBar) {
-            interfaceBox.setSelectedIndex(1);
-        } else {
-            interfaceBox.setSelectedIndex(0);
-        }
+        interfaceBox.setSelectedIndex(interfaceIndex());
         interfaceSelector.add(interfaceBox);
+
+        // Appearance of the modern interface
+        interfaceSelector.add(Box.createHorizontalStrut(12));
+        interfaceSelector.add(new JLabel(Alchemy.bundle.getString("appearance") + ": "));
+        String[] appearanceType = {Alchemy.bundle.getString("appearanceSystem"), Alchemy.bundle.getString("appearanceLight"), Alchemy.bundle.getString("appearanceDark")};
+        appearanceBox = new JComboBox(appearanceType);
+        appearanceBox.setSelectedIndex(Math.max(0, Math.min(2, appearance)));
+        interfaceSelector.add(appearanceBox);
+        appearanceBox.setEnabled(interfaceBox.getSelectedIndex() == 2);
+        interfaceBox.addActionListener(new ActionListener() {
+
+            public void actionPerformed(ActionEvent e) {
+                appearanceBox.setEnabled(interfaceBox.getSelectedIndex() == 2);
+            }
+        });
+        interfaceSelector.setToolTipText(Alchemy.bundle.getString("interfaceNextLaunch"));
 
 //        JLabel restart = new JLabel("* " + Alchemy.bundle.getString("restartRequired"));
 //        restart.setFont(new Font("sansserif", Font.PLAIN, 10));
@@ -660,7 +708,9 @@ class AlcPreferences implements AlcConstants {
         JPanel mp = new JPanel();
         //mp.setOpaque(true);
         mp.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
-        mp.setBackground(COLOR_UI_START);
+        if (!AlcTheme.isModern()) {
+            mp.setBackground(COLOR_UI_START);
+        }
         int plugins = Alchemy.plugins.creates.length + Alchemy.plugins.affects.length;
         mp.setLayout(new GridLayout(plugins, 1, 5, 5));
         //JCheckBox[] checkBoxes = new JCheckBox[plugins];
@@ -834,7 +884,8 @@ class AlcPreferences implements AlcConstants {
                 sessionDirectoryTextField.setText(sessionPath);
                 sessionRecordingState = false;
                 recordOnStartUp.setSelected(sessionRecordingState);
-                interfaceBox.setSelectedIndex(0);
+                interfaceBox.setSelectedIndex(2);
+                appearanceBox.setSelectedIndex(AlcTheme.APPEARANCE_SYSTEM);
                 undoDepthBox.setSelectedIndex(0);
                 localeBox.setSelectedIndex(0);
             }
@@ -864,7 +915,10 @@ class AlcPreferences implements AlcConstants {
                     public void actionPerformed(ActionEvent e) {
                         boolean restart = false;
                         // Set the interface to simple or not
-                        Alchemy.preferences.simpleToolBar = (interfaceBox.getSelectedIndex() == 1) ? true : false;
+                        // Applied at the next launch
+                        Alchemy.preferences.simpleToolBar = interfaceBox.getSelectedIndex() == 1;
+                        Alchemy.preferences.modernToolBar = interfaceBox.getSelectedIndex() == 2;
+                        Alchemy.preferences.appearance = appearanceBox.getSelectedIndex();
                         Alchemy.preferences.undoDepth=(undoDepthBox.getSelectedIndex());
                         Alchemy.preferences.locale=(localeIntToString(localeBox.getSelectedIndex()));
                         // If the session file name has changed
@@ -1017,7 +1071,9 @@ class AlcPreferences implements AlcConstants {
             String moduleName = currentModule.getName();
             final String moduleNodeName = modulePrefix + moduleName;
             final JCheckBox checkBox = new JCheckBox(moduleName);
-            checkBox.setBackground(COLOR_UI_START);
+            if (!AlcTheme.isModern()) {
+                checkBox.setBackground(COLOR_UI_START);
+            }
             checkBox.setFont(FONT_MEDIUM);
 
             // Set the state of the checkbox

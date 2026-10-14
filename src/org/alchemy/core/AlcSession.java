@@ -293,6 +293,35 @@ class AlcSession implements ActionListener, AlcConstants {
      * @return      True if save worked, otherwise false
      */
     boolean saveSVG(File file) {
+        // A PDF page shown under the drawing can only be exported by Batik
+        if (pdfReadPage != null) {
+            return saveSVGBatik(file);
+        }
+        System.out.println("Save SVG Called: " + file.toString());
+        java.awt.Rectangle bounds = Alchemy.canvas.getVisibleRect();
+        java.awt.Image image = null;
+        java.awt.Point imageLocation = null;
+        if (Alchemy.canvas.isImageDisplayEnabled() && Alchemy.canvas.isImageSet()) {
+            image = Alchemy.canvas.getImage();
+            imageLocation = Alchemy.canvas.getImageLocation();
+        }
+        java.util.List<java.util.List<AlcShape>> lists = new java.util.ArrayList<java.util.List<AlcShape>>();
+        for (java.util.ArrayList list : Alchemy.canvas.fullShapeList) {
+            lists.add((java.util.List<AlcShape>) list);
+        }
+        try {
+            AlcSvgWriter.write(file, bounds.width, bounds.height, Alchemy.canvas.getBackgroundColor(), image, imageLocation, lists);
+            return true;
+        } catch (IOException ex) {
+            System.err.println(ex);
+            return false;
+        }
+    }
+
+    /** Save the canvas to an SVG file with Batik (8-bit opacities, no grouping).
+     *  Only used when a PDF page is displayed under the drawing.
+     */
+    boolean saveSVGBatik(File file) {
         boolean noError = true;
         System.out.println("Save SVG Called: " + file.toString());
 
