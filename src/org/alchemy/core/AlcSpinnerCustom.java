@@ -144,6 +144,10 @@ public class AlcSpinnerCustom extends JComponent implements MouseListener, Mouse
     @Override
     public void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
+        if (AlcTheme.isModern()) {
+            paintModern(g2);
+            return;
+        }
         g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
 
 
@@ -171,6 +175,49 @@ public class AlcSpinnerCustom extends JComponent implements MouseListener, Mouse
         g2.setFont(font);
         g2.drawString(valueString, stringX, stringY);
 
+    }
+
+    /** Flat spinner of the modern interface: a field and two small arrows */
+    private void paintModern(Graphics2D g2) {
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        int w = width - 1, h = height - 1;
+        int arc = height > 18 ? 8 : 6;
+        g2.setColor(AlcTheme.field());
+        g2.fillRoundRect(0, 0, w, h, arc, arc);
+        // Pressed half of the arrows
+        if (upPressed || downPressed) {
+            g2.setColor(AlcTheme.hover());
+            g2.fillRect(textAreaWidth, upPressed ? 1 : halfHeight, w - textAreaWidth - 1, halfHeight - 1);
+        }
+        g2.setColor(AlcTheme.line());
+        g2.drawRoundRect(0, 0, w, h, arc, arc);
+        g2.drawLine(textAreaWidth, 1, textAreaWidth, h - 1);
+        // Arrows
+        float cx = textAreaWidth + (w - textAreaWidth) / 2f;
+        float s = height > 18 ? 3.5f : 2.5f;
+        java.awt.geom.Path2D up = new java.awt.geom.Path2D.Float();
+        up.moveTo(cx - s, halfHeight / 2f + s / 2f + 1);
+        up.lineTo(cx, halfHeight / 2f - s / 2f + 1);
+        up.lineTo(cx + s, halfHeight / 2f + s / 2f + 1);
+        java.awt.geom.Path2D down = new java.awt.geom.Path2D.Float();
+        down.moveTo(cx - s, halfHeight + halfHeight / 2f - s / 2f - 1);
+        down.lineTo(cx, halfHeight + halfHeight / 2f + s / 2f - 1);
+        down.lineTo(cx + s, halfHeight + halfHeight / 2f - s / 2f - 1);
+        g2.setStroke(new BasicStroke(1.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(upPressed ? AlcTheme.accent() : AlcTheme.muted());
+        g2.draw(up);
+        g2.setColor(downPressed ? AlcTheme.accent() : AlcTheme.muted());
+        g2.draw(down);
+        // Value
+        if (textInput || drag) {
+            g2.setColor(AlcTheme.hover());
+            g2.fillRoundRect(1, 1, textAreaWidth - 2, h - 1, arc, arc);
+        }
+        String valueString = Integer.toString(value);
+        g2.setFont(font);
+        g2.setColor(AlcTheme.text());
+        g2.drawString(valueString, (textAreaWidth - metrics.stringWidth(valueString)) / 2, stringY);
     }
 
     boolean getValueIsAdjusting() {

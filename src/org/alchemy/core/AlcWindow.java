@@ -181,6 +181,14 @@ public class AlcWindow extends JFrame implements AlcConstants, WindowStateListen
         return windowSize;
     }
 
+    /** Lay out the docked toolbar and the canvas under it (modern interface) */
+    void layoutBars() {
+        Dimension size = this.getSize();
+        Alchemy.toolBar.resizeToolBar(size);
+        Alchemy.canvas.resizeCanvas(size);
+        Alchemy.canvas.forceRedraw();
+    }
+
     private void resizeWindow() {
         // Make sure the minimum size is observed
         this.setSize(Math.max(minWindowSize.width, this.getWidth()), Math.max(minWindowSize.height, this.getHeight()));

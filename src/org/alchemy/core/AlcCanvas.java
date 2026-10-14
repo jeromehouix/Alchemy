@@ -583,11 +583,23 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     public void resizeCanvas(Dimension windowSize) {
         // Allow for the left hand toolbar if in 'simple' mode
         int x = 0;
+        int y = 0;
         if (Alchemy.preferences.simpleToolBar) {
             x = Alchemy.toolBar.toolBarWidth;
             windowSize.width -= Alchemy.toolBar.toolBarWidth;
         }
-        this.setBounds(x, 0, windowSize.width, windowSize.height);
+        // Modern interface: the canvas sits under the docked toolbar
+        if (AlcTheme.isModern() && !Alchemy.preferences.simpleToolBar) {
+            Container content = Alchemy.window.getContentPane();
+            if (content != null && content.getHeight() > 0) {
+                windowSize = new Dimension(content.getWidth(), content.getHeight());
+            }
+            if (Alchemy.toolBar.isToolBarVisible()) {
+                y = Alchemy.toolBar.getTotalHeight();
+                windowSize = new Dimension(windowSize.width, windowSize.height - y);
+            }
+        }
+        this.setBounds(x, y, windowSize.width, windowSize.height);
     }
 
     /** Clear all shapes and then redraws the canvas */
@@ -962,7 +974,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
                 currentAlphaSet[currentColorIndex] = alpha;
             }
 
-            if (Alchemy.preferences.paletteAttached || Alchemy.preferences.simpleToolBar) {
+            if (Alchemy.preferences.paletteAttached || Alchemy.preferences.simpleToolBar || AlcTheme.isModern()) {
                 Alchemy.toolBar.refreshColorButton();
             }
         } catch (IllegalArgumentException ex) {
@@ -1696,7 +1708,7 @@ public class AlcCanvas extends JPanel implements AlcConstants, MouseListener, Mo
     public void mousePressed(MouseEvent event) {
         penDown = true;
         // Hide the toolbar when clicking on the canvas
-        if (!Alchemy.preferences.paletteAttached && Alchemy.toolBar.isToolBarVisible() &&
+        if (!Alchemy.preferences.paletteAttached && Alchemy.toolBar.isToolBarVisible() && !AlcTheme.isModern() &&
                 !Alchemy.preferences.simpleToolBar && event.getY() >= Alchemy.toolBar.getTotalHeight()) {
             Alchemy.toolBar.setToolBarVisible(false);
         }

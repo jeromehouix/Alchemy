@@ -14,6 +14,18 @@ Le rendu classique à l'écran est celui de la version 008. Les nouveautés sont
    xattr -dr com.apple.quarantine /Applications/Alchemy.app
    ```
 
+## Interface moderne
+
+C'est l'interface par défaut. On la choisit dans **Préférences → Interface** (Standard / Simple / Moderne) ; le changement s'applique au prochain lancement.
+- **Une seule barre**, ancrée en haut, avec la toile en dessous. Les outils, la couleur, l'**opacité** et le nuancier sont toujours visibles : il n'y a plus de face à basculer.
+- **Tab** (ou Espace) masque ou affiche les barres pour dessiner en plein cadre.
+- La ligne du dessous porte les **options du module** (Pull Shapes : dossier, Recharger, Espacement, Taille, Rotation, Illustration entière, Couleurs d'origine).
+- Le bouton **Exact** active le rendu exact, synchronisé avec le menu Affichage.
+- **Apparence** Système, Clair ou Sombre (Préférences). « Système » suit le réglage clair ou sombre de macOS au lancement.
+- Icônes vectorielles, nettes sur écran Retina. Les icônes des modules sont recolorées aux couleurs du thème.
+- Menus et dialogues utilisent [FlatLaf](https://github.com/JFormDesigner/FlatLaf) (licence Apache 2.0, voir `lib/flatlaf-LICENSE.txt`), compilé depuis les sources de la version 3.7.2.
+- Les interfaces Standard et Simple d'origine restent disponibles et inchangées.
+
 ## Tampons (Pull Shapes)
 
 Les tampons sont lus dans **`~/Documents/Alchemy/shapes`**. Ce dossier est créé au premier lancement avec les tampons fournis (Bones, Circles, Parts, Tanagram).
@@ -53,7 +65,7 @@ Chaque push déclenche le workflow GitHub Actions `Build macOS app`, qui produit
 - Mémoire disponible portée à 50 % de la RAM, pour les compositions de plusieurs milliers de formes.
 - Module **Evolve Shapes** inclus : il était dans les sources mais pas dans la release 008.
 
-- 8.2 : curseur d'opacité logarithmique et opacité fine, rendu exact, PNG 16 bits, export SVG exact et groupé, tampons SVG, illustrations entières, couleurs d'origine, palette aléatoire ColourLovers en https.
+- 8.2 : interface moderne (barre unique ancrée, clair et sombre, icônes vectorielles), curseur d'opacité logarithmique et opacité fine, rendu exact, PNG 16 bits, export SVG exact et groupé, tampons SVG, illustrations entières, couleurs d'origine, palette aléatoire ColourLovers en https.
 
 Limites connues :
 - La pression des tablettes graphiques (JPen) ne fonctionne pas sur Apple Silicon. La souris et le trackpad fonctionnent normalement.

@@ -39,7 +39,10 @@ class AlcToolBarMain extends JPanel implements AlcConstants{
         //this.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         //this.setLayout(new FlowLayout(FlowLayout.LEFT, 10, 8));
         this.setLayout(new BorderLayout());
-        this.setPreferredSize(new Dimension(Alchemy.window.getWindowSize().width, height));
+        // The modern row sizes its parts from their content
+        if (!AlcTheme.isModern()) {
+            this.setPreferredSize(new Dimension(Alchemy.window.getWindowSize().width, height));
+        }
 
 
     }
@@ -48,6 +51,10 @@ class AlcToolBarMain extends JPanel implements AlcConstants{
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+        // The modern row paints the flat background itself
+        if (AlcTheme.isModern()) {
+            return;
+        }
 
         //int panelWidth = getWidth();
         GradientPaint gradientPaint = new GradientPaint(0, 0, COLOR_UI_START, 0, this.height, COLOR_UI_END, true);

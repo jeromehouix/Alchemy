@@ -45,6 +45,14 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
     private AlcCheckBoxMenuItem linkSessionItem;
     /** Fullscreen toggle global so it can be set on startup */
     AlcCheckBoxMenuItem fullScreenItem, transparentItem;
+    /** View > Exact render, kept in sync with the toolbar button */
+    private AlcCheckBoxMenuItem exactRenderItem;
+
+    void refreshExactRender() {
+        if (exactRenderItem != null) {
+            exactRenderItem.setState(Alchemy.canvas.isExactRender());
+        }
+    }
     /** Export dialog to set image size */
     private AlcExportDialog exportDialog;
 
@@ -65,7 +73,9 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
                 this.setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
                 break;
         }
-        this.setBackground(AlcToolBar.COLOR_UI_HIGHLIGHT);
+        if (!AlcTheme.isModern()) {
+            this.setBackground(AlcToolBar.COLOR_UI_HIGHLIGHT);
+        }
 
         // Recording interval array in milliseconds
         int[] recordingInterval = {500, 1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000};
@@ -275,9 +285,10 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             public void actionPerformed(ActionEvent e) {
                 AlcCheckBoxMenuItem source = (AlcCheckBoxMenuItem) e.getSource();
                 Alchemy.canvas.setExactRender(source.getState());
+                Alchemy.toolBar.refreshExactRender();
             }
         };
-        AlcCheckBoxMenuItem exactRenderItem = new AlcCheckBoxMenuItem(exactRenderAction);
+        exactRenderItem = new AlcCheckBoxMenuItem(exactRenderAction);
         exactRenderItem.setup(getS("exactRenderTitle"));
         exactRenderItem.setToolTipText(getS("exactRenderDescription"));
         exactRenderItem.setState(Alchemy.canvas.isExactRender());
@@ -412,7 +423,9 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         // Set the opacity and color of this to overide the defaults used for the top menus
         if (Alchemy.OS != OS_LINUX) {
             intervalMenu.setOpaque(true);
-            intervalMenu.setBackground(AlcToolBar.COLOR_UI_HIGHLIGHT);
+            if (!AlcTheme.isModern()) {
+                intervalMenu.setBackground(AlcToolBar.COLOR_UI_HIGHLIGHT);
+            }
         }
         ButtonGroup group = new ButtonGroup();
         for (int i = 0; i < recordingIntervalString.length; i++) {
@@ -607,7 +620,9 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         AlcMenu formatMenu = new AlcMenu(getS("setVectorFormat"));
         if (Alchemy.OS != OS_LINUX) {
             formatMenu.setOpaque(true);
-            formatMenu.setBackground(AlcToolBar.COLOR_UI_HIGHLIGHT);
+            if (!AlcTheme.isModern()) {
+                formatMenu.setBackground(AlcToolBar.COLOR_UI_HIGHLIGHT);
+            }
         }
         ButtonGroup formatGroup = new ButtonGroup();
         //PDF

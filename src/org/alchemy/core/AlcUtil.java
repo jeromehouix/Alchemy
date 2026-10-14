@@ -202,6 +202,11 @@ public class AlcUtil implements AlcConstants {
      * @return          ImageIcon or null if invalid
      */
     public static ImageIcon getImageIcon(URL imgUrl) {
+        // Modern interface: vector or theme-colored icons
+        ImageIcon modern = AlcVectorIcon.forUrl(imgUrl);
+        if (modern != null) {
+            return modern;
+        }
         if (imgUrl != null) {
             ImageIcon icon = new ImageIcon(imgUrl);
             // Check the icon actually exists - bit of a hack!

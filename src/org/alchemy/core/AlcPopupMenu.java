@@ -35,14 +35,19 @@ class AlcPopupMenu extends JPopupMenu implements AlcConstants {
     AlcPopupMenu() {
 
         // Set the color for the bg
-        this.setBackground(COLOR_UI_HIGHLIGHT);
+        if (!AlcTheme.isModern()) {
+            this.setBackground(COLOR_UI_HIGHLIGHT);
+        }
         // Make sure the popup is opaque
         this.setOpaque(true);
-        Border outline = BorderFactory.createLineBorder(COLOR_UI_LINE, 1);
-        Border empty = BorderFactory.createEmptyBorder(2, 2, 2, 2);
-        // Compound border combining the above two
-        Border compound = BorderFactory.createCompoundBorder(outline, empty);
-        this.setBorder(compound);
+        // The modern interface keeps the look and feel's popup border
+        if (!AlcTheme.isModern()) {
+            Border outline = BorderFactory.createLineBorder(COLOR_UI_LINE, 1);
+            Border empty = BorderFactory.createEmptyBorder(2, 2, 2, 2);
+            // Compound border combining the above two
+            Border compound = BorderFactory.createCompoundBorder(outline, empty);
+            this.setBorder(compound);
+        }
 
         this.addMouseListener(createMouseListener(this));
         this.addPopupMenuListener(createPopupMenuListener());

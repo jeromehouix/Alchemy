@@ -82,7 +82,9 @@ class AlcRadioButtonMenuItem extends JRadioButtonMenuItem implements AlcShortcut
         // Top Left Bottom Right
         this.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
         if (Alchemy.OS != OS_LINUX) {        
-            this.setBackground(COLOR_UI_HIGHLIGHT);
+            if (!AlcTheme.isModern()) {
+                this.setBackground(COLOR_UI_HIGHLIGHT);
+            }
         }
         this.setFont(FONT_MEDIUM);
     }

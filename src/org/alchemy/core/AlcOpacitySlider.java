@@ -184,6 +184,10 @@ class AlcOpacitySlider extends JPanel implements AlcConstants {
             Graphics2D g2 = (Graphics2D) g;
             int w = SLIDER_WIDTH, h = SLIDER_HEIGHT;
             int x = opacityToPosition(opacity, w);
+            if (AlcTheme.isModern()) {
+                paintModern(g2, w, h, x);
+                return;
+            }
             g2.setColor(COLOR_UI_START);
             g2.fillRect(1, 1, w - 2, h - 2);
             g2.setColor(Color.LIGHT_GRAY);
@@ -197,6 +201,25 @@ class AlcOpacitySlider extends JPanel implements AlcConstants {
             AlcUtil.drawSoftRect(g2, 0, 0, w, h);
             g2.setColor(over ? Color.BLACK : Color.GRAY);
             g2.drawLine(x, 0, x, h);
+        }
+
+        private void paintModern(Graphics2D g2, int w, int h, int x) {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(AlcTheme.field());
+            g2.fillRoundRect(0, 0, w - 1, h - 1, 8, 8);
+            Color a = AlcTheme.accent();
+            g2.setColor(new Color(a.getRed(), a.getGreen(), a.getBlue(), 70));
+            g2.fillRoundRect(0, 0, Math.max(8, x), h - 1, 8, 8);
+            g2.setColor(AlcTheme.line());
+            g2.drawRoundRect(0, 0, w - 1, h - 1, 8, 8);
+            // Marks at 1/255 and 10 %
+            g2.setColor(AlcTheme.muted());
+            int x255 = opacityToPosition(1 / 255f, w);
+            int x10 = opacityToPosition(0.1f, w);
+            g2.drawLine(x255, h - 6, x255, h - 3);
+            g2.drawLine(x10, h - 6, x10, h - 3);
+            g2.setColor(over ? AlcTheme.accent() : AlcTheme.text());
+            g2.fillRect(Math.max(1, Math.min(w - 3, x - 1)), 2, 2, h - 4);
         }
 
         private void track(MouseEvent e) {

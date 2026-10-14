@@ -33,7 +33,12 @@ class AlcToolBarSub extends JPanel implements AlcConstants {
         // Allow Transparency
         this.setOpaque(false);
         // Top Left Bottom Right
-        this.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+        if (AlcTheme.isModern()) {
+            height = 31;
+            this.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
+        } else {
+            this.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
+        }
         this.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
         this.setPreferredSize(new Dimension(Alchemy.window.getWindowSize().width, height));
     }
@@ -67,6 +72,14 @@ class AlcToolBarSub extends JPanel implements AlcConstants {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+        if (AlcTheme.isModern()) {
+            int targetWidth = getRootPane().getSize().width;
+            g.setColor(AlcTheme.subBar());
+            g.fillRect(0, 0, targetWidth, height);
+            g.setColor(AlcTheme.line());
+            g.fillRect(0, height - 1, targetWidth, 1);
+            return;
+        }
 
         //int panelWidth = getWidth();
 

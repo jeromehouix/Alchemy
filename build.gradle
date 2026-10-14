@@ -27,6 +27,9 @@ def runtimeLibs = files(
         'lib/jpen/jpen-2.jar',
         'lib/beads.jar',
         'lib/miglayout.jar',
+        // FlatLaf (Apache License 2.0), compiled from the sources of tag 3.7.2:
+        // look and feel of the modern interface
+        'lib/flatlaf-3.7.2.jar',
         fileTree('lib/batik') { include '*.jar' }
 )
 
