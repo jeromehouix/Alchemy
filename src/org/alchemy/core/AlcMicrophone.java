@@ -109,13 +109,20 @@ public class AlcMicrophone {
      */
     public void closeLine() {
         stop();
-        targetDataLine.stop();
+        if (targetDataLine != null) {
+            targetDataLine.stop();
+        }
         targetDataLine = null;
         firstRun = true;
     }
 
     /** Starts Microphone Input */
     public void start() {
+        // No microphone available: stay silent instead of failing
+        if (targetDataLine == null) {
+            System.err.println("No microphone line open: the microphone modules will not react to sound");
+            return;
+        }
         running = true;
         micThread = new Thread() {
 
@@ -179,6 +186,9 @@ public class AlcMicrophone {
      *  @return     Current Microphone Level
      */
     public double getMicLevel() {
+        if (audioSamples == null || audioSamples.length == 0) {
+            return 0;
+        }
         // TODO - Figure out how to manage the sound level intelligently
         double sum = 0;
         for (int i = 0; i < audioSamples.length; i++) {
@@ -237,6 +247,12 @@ public class AlcMicrophone {
                 }
             }
         //System.out.println();
+        }
+
+        // No microphone (or no access to it): a default format, the line simply stays closed
+        if (audioFormat == null) {
+            System.err.println("No microphone format found, using a default format");
+            audioFormat = new AudioFormat(44100F, 16, 1, true, false);
         }
 
         if (audioFormat.getSampleRate() == AudioSystem.NOT_SPECIFIED) {

@@ -19,6 +19,8 @@
  */
 package org.alchemy.core;
 
+import java.awt.geom.Point2D;
+
 import java.awt.event.MouseEvent;
 import java.awt.event.KeyEvent;
 import java.net.URL;
@@ -154,6 +156,47 @@ public abstract class AlcModule implements AlcConstants {
         return this.moduleName;
     }
 
+    /** Key of the module in the language bundle: module.ClassName */
+    String bundleKey() {
+        return "module." + getClass().getSimpleName();
+    }
+
+    /** Name of the module in the language of the interface */
+    String getDisplayName() {
+        return text(bundleKey(), getName());
+    }
+
+    /** Description of the module in the language of the interface */
+    String getDisplayDescription() {
+        return text(bundleKey() + ".description", getDescription());
+    }
+
+    private static String text(String key, String fallback) {
+        try {
+            if (bundle != null && bundle.containsKey(key)) {
+                return bundle.getString(key);
+            }
+        } catch (Exception e) {
+            // Not translated
+        }
+        return fallback;
+    }
+
+    /**
+     * A text of the module interface in the language of Alchemy.
+     * The English text is the key: "Line Weight" is looked up as
+     * {@code m.Line_Weight}; without a translation the English text is used.
+     * @param english   The text in English
+     * @return          The translated text
+     */
+    protected static String tr(String english) {
+        if (english == null) {
+            return null;
+        }
+        String key = "m." + english.trim().replaceAll("[^A-Za-z0-9]+", "_").replaceAll("^_|_$", "");
+        return text(key, english);
+    }
+
     void setName(String moduleName) {
         this.moduleName = moduleName;
     }
@@ -274,6 +317,16 @@ public abstract class AlcModule implements AlcConstants {
     //////////////////////////////////////////////////////////////
     // MOUSE EVENTS
     //////////////////////////////////////////////////////////////
+    /**
+     * Precise position of a mouse event on the canvas, in canvas coordinates.
+     * When the view is zoomed in, it is finer than a canvas pixel.
+     * @param e Mouse event received by the module
+     * @return  The position as floats
+     */
+    protected static Point2D.Float point(MouseEvent e) {
+        return canvas.getDocPoint(e);
+    }
+
     /**
      * Called when the mouse is pressed, only if the module is active.
      * @param e The {@link MouseEvent} containing location data.   

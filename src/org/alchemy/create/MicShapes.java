@@ -54,7 +54,9 @@ public class MicShapes extends AlcModule implements AlcConstants {
 
     @Override
     protected void deselect() {
-        micIn.stop();
+        if (micIn != null) {
+            micIn.stop();
+        }
         micIn = null;
     }
 

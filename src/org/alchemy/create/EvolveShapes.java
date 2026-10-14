@@ -87,7 +87,7 @@ public class EvolveShapes extends AlcModule {
         subToolBarSection = new AlcToolBarSubSection(this);
 
         // Evolve Button
-        AlcSubButton evolveButton = new AlcSubButton("Evolver", AlcUtil.getUrlPath("evolver.png", getClassLoader()));
+        AlcSubButton evolveButton = new AlcSubButton(tr("Evolver"), AlcUtil.getUrlPath("evolver.png", getClassLoader()));
         evolveButton.setToolTipText("Evolve shapes using a genetic algorithm");
         evolveButton.addActionListener(
                 new ActionListener() {
@@ -118,7 +118,7 @@ public class EvolveShapes extends AlcModule {
     }
 
     private void launchEvolver() {
-        final JDialog evolver = new JDialog(window, "Evolver", true);
+        final JDialog evolver = new JDialog(window, tr("Evolver"), true);
 
         final JPanel masterPanel = new JPanel();
         masterPanel.setLayout(new BoxLayout(masterPanel, BoxLayout.PAGE_AXIS));
@@ -130,8 +130,8 @@ public class EvolveShapes extends AlcModule {
         // EVOLVE PANEL
         //////////////////////////////////////////////////////////////
         // Load from Canvas
-        JButton loadCanvasButton = new JButton("Canvas");
-        loadCanvasButton.setToolTipText("Load shapes from the canvas");
+        JButton loadCanvasButton = new JButton(tr("Canvas"));
+        loadCanvasButton.setToolTipText(tr("Load shapes from the canvas"));
         loadCanvasButton.setFont(FONT_MEDIUM);
         loadCanvasButton.addActionListener(
                 new ActionListener() {
@@ -144,8 +144,8 @@ public class EvolveShapes extends AlcModule {
                 });
 
         // Load from PDF
-        JButton loadPDFButton = new JButton("PDF...");
-        loadPDFButton.setToolTipText("Load shapes from a PDF file");
+        JButton loadPDFButton = new JButton(tr("PDF..."));
+        loadPDFButton.setToolTipText(tr("Load shapes from a PDF file"));
         loadPDFButton.setFont(FONT_MEDIUM);
         loadPDFButton.addActionListener(
                 new ActionListener() {
@@ -171,17 +171,17 @@ public class EvolveShapes extends AlcModule {
         });
 
 
-        String mutationToolTip = "Set the mutation rate";
+        String mutationToolTip = tr("Set the mutation rate");
         mutationSlider.setPreferredSize(new Dimension(100, 25));
 //        mutationSlider.setMaximumSize(new Dimension(100, 25));
         mutationSlider.setToolTipText(mutationToolTip);
-        JLabel mutationLabel = new JLabel("Mutation");
+        JLabel mutationLabel = new JLabel(tr("Mutation"));
         mutationLabel.setFont(FONT_MEDIUM);
         mutationLabel.setToolTipText(mutationToolTip);
 
         // Evolve
-        JButton evolveButton = new JButton("Evolve");
-        evolveButton.setToolTipText("Evolve the next generation of shapes");
+        JButton evolveButton = new JButton(tr("Evolve"));
+        evolveButton.setToolTipText(tr("Evolve the next generation of shapes"));
         evolveButton.setFont(FONT_MEDIUM);
         evolveButton.addActionListener(
                 new ActionListener() {
@@ -305,7 +305,7 @@ public class EvolveShapes extends AlcModule {
             return layoutShapePanel();
         } else {
             JPanel panel = new JPanel();
-            JLabel message = new JLabel("Please load shapes from the canvas or a PDF file to begin");
+            JLabel message = new JLabel(tr("Please load shapes from the canvas or a PDF file to begin"));
             message.setFont(FONT_MEDIUM);
             panel.add(message, BorderLayout.CENTER);
             return panel;

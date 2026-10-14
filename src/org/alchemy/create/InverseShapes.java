@@ -19,6 +19,7 @@
  */
 package org.alchemy.create;
 
+import java.awt.geom.Point2D;
 import org.alchemy.core.AlcModule;
 import org.alchemy.core.AlcShape;
 
@@ -70,7 +71,7 @@ public class InverseShapes extends AlcModule {
     @Override
     public void mouseMoved(MouseEvent e) {
         if (mouseUp) {
-            Point p = e.getPoint();
+            Point2D.Float p = point(e);
             if (moveTo) {
                 canvas.createShapes.add(new AlcShape(p));
                 moveTo = false;

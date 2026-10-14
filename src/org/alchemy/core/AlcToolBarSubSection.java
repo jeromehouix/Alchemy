@@ -56,7 +56,7 @@ public class AlcToolBarSubSection {
         contentPanel.setOpaque(false);
 
         // TITLE BUTTON
-        titleButton = new AlcSubButton(module.getName());
+        titleButton = new AlcSubButton(module.getDisplayName());
         titleButton.setFont(AlcConstants.FONT_SMALL_BOLD);
         titleButton.setVerticalTextPosition(AbstractButton.CENTER);
         titleButton.setHorizontalTextPosition(AbstractButton.LEADING);

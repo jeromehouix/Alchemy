@@ -19,9 +19,14 @@
 package org.alchemy.create;
 
 import eu.medsea.util.MimeUtil;
+import java.awt.Desktop;
+import java.awt.FileDialog;
+import java.awt.Frame;
 import java.awt.Rectangle;
+import javax.swing.JOptionPane;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.List;
 import java.awt.event.*;
@@ -48,6 +53,8 @@ public class PullShapes extends AlcModule implements AlcConstants {
     private boolean hasFolders,  hasRootShapes,  hasShapes;
     private int currentFolder;
     private String[] folderNames;
+    /** The folders of stamps, in the order of the folder selector (after "All Shapes") */
+    private File[] folderFiles = new File[0];
     private ArrayList[] shapeLists;
     /** Whole illustrations (all the shapes of a PDF page or an SVG file), per folder */
     private ArrayList[] wholeLists;
@@ -94,21 +101,43 @@ public class PullShapes extends AlcModule implements AlcConstants {
 
         // Reload
         AlcSubButton reloadButton = new AlcSubButton("Reload", AlcUtil.getUrlPath("reload.png", getClassLoader()));
-        reloadButton.setToolTipText("Reload the stamps (PDF and SVG files) from the shapes folder: " + AlcPaths.shapesDir());
+        reloadButton.setToolTipText(tr("Reload the stamps (PDF and SVG files) from the shapes folder:") + " " + AlcPaths.shapesDir());
         reloadButton.addActionListener(
                 new ActionListener() {
 
                     public void actionPerformed(ActionEvent e) {
-                        loadShapes();
-                        if (folderSelector != null) {
-                            folderSelector.removeAllItems();
-                            if (folderNames != null) {
-                                setupFolderSelector();
-                            }
-                        }
+                        reloadShapes(null);
                     }
                 });
         subToolBarSection.add(reloadButton);
+
+        // Add stamps: copy PDF and SVG files into the stamps folder
+        AlcSubButton addButton = new AlcSubButton("Add", AlcUtil.getUrlPath("import.png", getClassLoader()));
+        addButton.setToolTipText("Add PDF or SVG files to the stamps, in an existing or a new folder");
+        addButton.addActionListener(
+                new ActionListener() {
+
+                    public void actionPerformed(ActionEvent e) {
+                        importStamps();
+                    }
+                });
+        subToolBarSection.add(addButton);
+
+        // Show the stamps folder in the Finder / file manager
+        AlcSubButton openButton = new AlcSubButton("Open", AlcUtil.getUrlPath("folder.png", getClassLoader()));
+        openButton.setToolTipText(tr("Open the stamps folder:") + " " + AlcPaths.shapesDir());
+        openButton.addActionListener(
+                new ActionListener() {
+
+                    public void actionPerformed(ActionEvent e) {
+                        try {
+                            Desktop.getDesktop().open(AlcPaths.shapesDir());
+                        } catch (Exception ex) {
+                            JOptionPane.showMessageDialog(null, tr("The stamps folder is:") + "\n" + AlcPaths.shapesDir());
+                        }
+                    }
+                });
+        subToolBarSection.add(openButton);
 
 
         // Spacing Slider
@@ -251,6 +280,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
             folders = new File[0];
         }
         java.util.Arrays.sort(folders);
+        folderFiles = folders;
         File[] rootFiles = shapesDir.listFiles(stampFilter);
 
         ArrayList<ArrayList<AlcShape>> pieces = new ArrayList<ArrayList<AlcShape>>();
@@ -270,7 +300,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
             hasFolders = true;
             // Add an extra slot for 'ALL' shapes
             folderNames = new String[folders.length + 1];
-            folderNames[0] = "All Shapes";
+            folderNames[0] = tr("All Shapes");
             for (int i = 0; i < folders.length; i++) {
                 File[] files = AlcUtil.listFilesAsArray(folders[i], stampFilter, true);
                 java.util.Arrays.sort(files);
@@ -279,7 +309,7 @@ public class PullShapes extends AlcModule implements AlcConstants {
                 loadFiles(files, folderPieces, folderWholes);
                 pieces.add(folderPieces);
                 wholes.add(folderWholes);
-                folderNames[i + 1] = folders[i].getName() + " Folder";
+                folderNames[i + 1] = folders[i].getName();
             }
         }
 
@@ -293,6 +323,137 @@ public class PullShapes extends AlcModule implements AlcConstants {
         if (!hasShapes) {
             AlcUtil.showNoShapesDialog();
         }
+    }
+
+    /**
+     * Reload the stamps and refresh the folder selector
+     * @param selectFolder  Folder to select afterwards, or null to keep "All Shapes"
+     */
+    private void reloadShapes(File selectFolder) {
+        loadShapes();
+        if (folderSelector == null && hasFolders) {
+            // First folder created: the selector did not exist yet
+            folderSelector = new AlcSubComboBox(null);
+            folderSelector.setToolTipText("Select which folder of shapes to use");
+            subToolBarSection.add(folderSelector);
+            subToolBarSection.revalidate();
+        }
+        if (folderSelector != null) {
+            folderSelector.removeAllItems();
+            if (folderNames != null) {
+                setupFolderSelector();
+            }
+            if (selectFolder != null) {
+                for (int i = 0; i < folderFiles.length; i++) {
+                    if (folderFiles[i].equals(selectFolder)) {
+                        folderSelector.setSelectedIndex(i + 1);
+                    }
+                }
+            }
+        }
+    }
+
+    /** Choose PDF and SVG files and copy them into a folder of stamps */
+    public void importStamps() {
+        File shapesDir = AlcPaths.shapesDir();
+        // 1. The files
+        FileDialog chooser = new FileDialog((Frame) null, tr("Add stamps (PDF or SVG)"), FileDialog.LOAD);
+        chooser.setMultipleMode(true);
+        chooser.setFilenameFilter(new FilenameFilter() {
+
+            public boolean accept(File dir, String name) {
+                String lower = name.toLowerCase();
+                return lower.endsWith(".pdf") || lower.endsWith(".svg");
+            }
+        });
+        chooser.setVisible(true);
+        File[] files = chooser.getFiles();
+        java.util.List<File> stamps = new ArrayList<File>();
+        for (File f : files) {
+            String lower = f.getName().toLowerCase();
+            if (f.isFile() && (lower.endsWith(".pdf") || lower.endsWith(".svg"))) {
+                stamps.add(f);
+            }
+        }
+        if (stamps.isEmpty()) {
+            if (files.length > 0) {
+                JOptionPane.showMessageDialog(null, tr("Only PDF and SVG files can be used as stamps."));
+            }
+            return;
+        }
+
+        // 2. The destination: the selected folder by default, or a new one
+        String newFolder = tr("New folder...");
+        java.util.List<String> choices = new ArrayList<String>();
+        for (File folder : folderFiles) {
+            choices.add(folder.getName());
+        }
+        choices.add(newFolder);
+        String preselected = newFolder;
+        int selected = folderSelector != null ? folderSelector.getSelectedIndex() : 0;
+        if (selected > 0 && selected - 1 < folderFiles.length) {
+            preselected = folderFiles[selected - 1].getName();
+        } else if (folderFiles.length > 0) {
+            preselected = folderFiles[0].getName();
+        }
+        Object choice = JOptionPane.showInputDialog(null,
+                stamps.size() + " " + (stamps.size() > 1 ? tr("files to add. Folder of stamps:") : tr("file to add. Folder of stamps:")),
+                tr("Add stamps"), JOptionPane.PLAIN_MESSAGE, null, choices.toArray(), preselected);
+        if (choice == null) {
+            return;
+        }
+        File destination;
+        if (choice.equals(newFolder)) {
+            String name = JOptionPane.showInputDialog(null, tr("Name of the new folder:"), tr("Add stamps"), JOptionPane.PLAIN_MESSAGE);
+            if (name == null || name.trim().isEmpty()) {
+                return;
+            }
+            destination = new File(shapesDir, name.trim().replaceAll("[/\\\\:]", "-"));
+        } else {
+            destination = new File(shapesDir, choice.toString());
+        }
+
+        // 3. Copy, then reload and select the folder
+        try {
+            java.util.List<String> unreadable = importFiles(stamps, destination);
+            if (!unreadable.isEmpty()) {
+                JOptionPane.showMessageDialog(null, stamps.size() + " " + tr("file(s) added to") + " " + destination.getName()
+                        + ".\n" + tr("No shape could be read from:") + " " + String.join(", ", unreadable));
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(null, tr("Could not copy the files into") + " " + destination + ":\n" + ex.getMessage());
+        }
+    }
+
+    /**
+     * Copy stamp files into a folder (created if needed) without overwriting
+     * files of the same name, then reload the stamps and select that folder
+     *
+     * @return The names of the files from which no shape could be read
+     */
+    java.util.List<String> importFiles(java.util.List<File> stamps, File destination) throws java.io.IOException {
+        java.util.List<String> unreadable = new ArrayList<String>();
+        java.nio.file.Files.createDirectories(destination.toPath());
+        for (File f : stamps) {
+            File target = new File(destination, f.getName());
+            int n = 2;
+            while (target.exists()) {
+                String name = f.getName();
+                int dot = name.lastIndexOf('.');
+                target = new File(destination, name.substring(0, dot) + " " + n + name.substring(dot));
+                n++;
+            }
+            java.nio.file.Files.copy(f.toPath(), target.toPath());
+            // Check that the file gives at least one shape
+            boolean readable = target.getName().toLowerCase().endsWith(".svg")
+                    ? !AlcUtil.getSVGShapes(target).isEmpty()
+                    : AlcUtil.getPDFShapes(target, true, 0) != null;
+            if (!readable) {
+                unreadable.add(f.getName());
+            }
+        }
+        reloadShapes(destination);
+        return unreadable;
     }
 
     /** Read the stamps of PDF and SVG files: single shapes, and whole illustrations */
@@ -388,8 +549,9 @@ public class PullShapes extends AlcModule implements AlcConstants {
         }
         // Move it into place
         Rectangle bounds = cloneShape.getBounds();
-        int x = e.getX() - (bounds.width >> 1);
-        int y = e.getY() - (bounds.height >> 1);
+        Point2D.Float p = point(e);
+        double x = p.x - (bounds.width >> 1);
+        double y = p.y - (bounds.height >> 1);
         cloneShape.move(x, y);
 
         cloneShape.setup();
@@ -411,7 +573,8 @@ public class PullShapes extends AlcModule implements AlcConstants {
         float scaleFactor = scale ? math.random(0.1F, size) : 1F;
         double rotation = rotate ? math.random(0.1F, 57.2958F) : 0;
         AffineTransform at = new AffineTransform();
-        at.translate(e.getX(), e.getY());
+        Point2D.Float p = point(e);
+        at.translate(p.x, p.y);
         at.rotate(rotation);
         at.scale(scaleFactor, scaleFactor);
         at.translate(-bounds.getCenterX(), -bounds.getCenterY());

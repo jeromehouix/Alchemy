@@ -19,6 +19,7 @@
  */
 package org.alchemy.create;
 
+import java.awt.geom.Point2D;
 import org.alchemy.core.*;
 import java.awt.Color;
 import java.awt.Point;
@@ -39,7 +40,7 @@ public class Shapes extends AlcModule implements AlcConstants {
     private boolean outlineMode = false;
     private AlcToolBarSubSection subToolBarSection;
     private boolean secondClick;
-    private Point lastPt;
+    private Point2D.Float lastPt;
     private int guideSize = -1;
     private GeneralPath secondPath = null;
     private Color guideColor = new Color(0, 255, 255);
@@ -112,7 +113,7 @@ public class Shapes extends AlcModule implements AlcConstants {
     @Override
     public void mousePressed(MouseEvent e) {
         if (!straightShapes) {
-            Point p = e.getPoint();
+            Point2D.Float p = point(e);
             AlcShape shape = new AlcShape(p);
             canvas.createShapes.add(shape);
             if(outlineMode && canvas.getStyle() == STYLE_FILL){
@@ -139,7 +140,7 @@ public class Shapes extends AlcModule implements AlcConstants {
         // then draw a guide line
         if (straightShapes && !firstClick && lastPt != null) {
 
-            GeneralPath line = new GeneralPath(new Line2D.Float(lastPt.x, lastPt.y, e.getX(), e.getY()));
+            GeneralPath line = new GeneralPath(new Line2D.Float(lastPt.x, lastPt.y, point(e).x, point(e).y));
             AlcShape guide = new AlcShape(line, guideColor, 100, STYLE_STROKE, 1);
 
             if (guideSize == canvas.guideShapes.size()) {
@@ -165,7 +166,7 @@ public class Shapes extends AlcModule implements AlcConstants {
         if (!straightShapes) {
             
            //System.out.println(canvas.getPenType() + " " + canvas.getPenPressure());
-            Point p = e.getPoint();
+            Point2D.Float p = point(e);
             // Need to test if it is null incase the shape has been auto-cleared
             if (canvas.hasCreateShapes()) {
                 canvas.getCurrentCreateShape().curveTo(p);
@@ -180,7 +181,7 @@ public class Shapes extends AlcModule implements AlcConstants {
     @Override
     public void mouseReleased(MouseEvent e) {
         
-        Point p = e.getPoint();
+        Point2D.Float p = point(e);
         // Only if this is a single click
         if (e.getClickCount() <= 1) {
             if (straightShapes) {

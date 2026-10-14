@@ -52,7 +52,7 @@ public abstract class AlcAbstractSpinner extends JPanel implements AlcShortcutIn
      * @param toolTip   The tooltip string
      */
     public void setToolTip(String toolTip) {
-        this.toolTip = toolTip;
+        this.toolTip = AlcModule.tr(toolTip);
     }
 
     /**
@@ -141,5 +141,11 @@ public abstract class AlcAbstractSpinner extends JPanel implements AlcShortcutIn
      */
     public void removeChangeListener(ChangeListener listener) {
         spinner.removeChangeListener(listener);
+    }
+
+    /** Tooltips of the modules are translated (see AlcModule.tr) */
+    @Override
+    public void setToolTipText(String text) {
+        super.setToolTipText(AlcModule.tr(text));
     }
 }

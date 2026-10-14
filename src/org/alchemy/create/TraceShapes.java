@@ -110,7 +110,7 @@ public class TraceShapes extends AlcModule implements AlcConstants {
 
         } else {
             // Tell the user that there was a problem loading the image
-            AlcUtil.showConfirmDialog("Error Connecting", "Please check your internet connection.");
+            AlcUtil.showConfirmDialog(tr("Error Connecting"), tr("Please check your internet connection."));
         }
 
     }

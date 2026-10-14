@@ -94,6 +94,10 @@ public abstract class AlcAbstractToolBar extends JPanel implements AlcConstants 
     }
     void enableUndo() {   
     }
+    /** Show if the canvas is zoomed in */
+    void syncZoomButton(boolean zoomed){
+    }
+
     void setZoomButtonSelected(){
     }
     void refreshRClickPicker(){

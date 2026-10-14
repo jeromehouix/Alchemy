@@ -47,7 +47,7 @@ class AlcPaletteTitleBar extends JPanel implements AlcConstants {
 
         JButton closeButton = new JButton(AlcUtil.getImageIcon("palette.png"));
         closeButton.setRolloverIcon(AlcUtil.getImageIcon("palette-over.png"));
-        closeButton.setToolTipText("Close the palette and restore the toolbar to the main window");
+        closeButton.setToolTipText(AlcModule.tr("Close the palette and restore the toolbar to the main window"));
 
         // Insets(int top, int left, int bottom, int right)
         closeButton.setMargin(new Insets(0, 0, 0, 0));

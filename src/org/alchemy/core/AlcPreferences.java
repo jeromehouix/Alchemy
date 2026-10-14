@@ -67,7 +67,7 @@ class AlcPreferences implements AlcConstants {
     /** Ok Button */
     private JButton okButton;
     /** Size of the preferences window */
-    private final Dimension prefsWindowSize = new Dimension(500, 500);
+    private final Dimension prefsWindowSize = new Dimension(500, 560);
     /** Height of the tab panel */
     private final int tabPanelHeight = 65;
     //////////////////////////////////////////////////////////////
@@ -215,7 +215,7 @@ class AlcPreferences implements AlcConstants {
         color = prefs.getInt("Color", 0x000000);
         
         exportDirectory = prefs.get("Export Directory", DIR_DESKTOP);
-        undoDepth = prefs.getInt("Undo Depth", 0);
+        undoDepth = prefs.getInt("Undo Depth", 2);
         locale = prefs.get("Locale", "system");
 
     }
@@ -589,24 +589,23 @@ class AlcPreferences implements AlcConstants {
         gp.setOpaque(false);
         gp.setLayout(new BoxLayout(gp, BoxLayout.PAGE_AXIS));
 
-        // INTERFACE SELECTOR
-        JPanel interfaceSelector = new JPanel(new FlowLayout(FlowLayout.CENTER, 2, 2));
-        interfaceSelector.setOpaque(false);
-        interfaceSelector.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
-        interfaceSelector.add(new JLabel(Alchemy.bundle.getString("interface") + ": "));
+        // A form: the labels on the left, the choices on the right
+        JPanel form = new JPanel(new GridBagLayout());
+        form.setOpaque(false);
+        form.setAlignmentX(Component.CENTER_ALIGNMENT);
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(4, 6, 4, 6);
 
         String[] interfaceType = {Alchemy.bundle.getString("standard"), Alchemy.bundle.getString("simple"), Alchemy.bundle.getString("modern")};
         interfaceBox = new JComboBox(interfaceType);
         interfaceBox.setSelectedIndex(interfaceIndex());
-        interfaceSelector.add(interfaceBox);
+        interfaceBox.setToolTipText(Alchemy.bundle.getString("interfaceNextLaunch"));
+        addFormRow(form, c, 0, Alchemy.bundle.getString("interface"), interfaceBox);
 
         // Appearance of the modern interface
-        interfaceSelector.add(Box.createHorizontalStrut(12));
-        interfaceSelector.add(new JLabel(Alchemy.bundle.getString("appearance") + ": "));
         String[] appearanceType = {Alchemy.bundle.getString("appearanceSystem"), Alchemy.bundle.getString("appearanceLight"), Alchemy.bundle.getString("appearanceDark")};
         appearanceBox = new JComboBox(appearanceType);
         appearanceBox.setSelectedIndex(Math.max(0, Math.min(2, appearance)));
-        interfaceSelector.add(appearanceBox);
         appearanceBox.setEnabled(interfaceBox.getSelectedIndex() == 2);
         interfaceBox.addActionListener(new ActionListener() {
 
@@ -614,63 +613,29 @@ class AlcPreferences implements AlcConstants {
                 appearanceBox.setEnabled(interfaceBox.getSelectedIndex() == 2);
             }
         });
-        interfaceSelector.setToolTipText(Alchemy.bundle.getString("interfaceNextLaunch"));
+        addFormRow(form, c, 1, Alchemy.bundle.getString("appearance"), appearanceBox);
 
-//        JLabel restart = new JLabel("* " + Alchemy.bundle.getString("restartRequired"));
-//        restart.setFont(new Font("sansserif", Font.PLAIN, 10));
-//        restart.setForeground(Color.GRAY);
-//        interfaceSelector.add(restart);
-        gp.add(interfaceSelector);
-        
-        
-        // Undo Depth SELECTOR
-        JPanel undoDepthSelector = new JPanel(new FlowLayout(FlowLayout.CENTER, 2, 2));
-        undoDepthSelector.setOpaque(false);
-        undoDepthSelector.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
-        undoDepthSelector.add(new JLabel(Alchemy.bundle.getString("undodepth") + ": "));
-
+        // Undo Depth
         String[] undoDepthString = {Alchemy.bundle.getString("disabled"),
                                     Alchemy.bundle.getString("single"),
                                     Alchemy.bundle.getString("unlimited")};
         undoDepthBox = new JComboBox(undoDepthString);
-        if (Alchemy.preferences.undoDepth==0) {
-            undoDepthBox.setSelectedIndex(0);
-        }else if(Alchemy.preferences.undoDepth==1){
-            undoDepthBox.setSelectedIndex(1);
-        }else{
-            undoDepthBox.setSelectedIndex(2);
-        }
-        undoDepthSelector.add(undoDepthBox);
-        //undoDepthSelector.add(restart);
-        gp.add(undoDepthSelector);
-        
-        
-        // Locale Selector
-        JPanel localeSelector = new JPanel(new FlowLayout(FlowLayout.CENTER, 2, 2));
-        localeSelector.setOpaque(false);
-        localeSelector.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
-        localeSelector.add(new JLabel(Alchemy.bundle.getString("locale") + ": "));
+        undoDepthBox.setSelectedIndex(Math.max(0, Math.min(2, Alchemy.preferences.undoDepth)));
+        addFormRow(form, c, 2, Alchemy.bundle.getString("undodepth"), undoDepthBox);
 
-        //String[] localeString = {"System","de","en","es","fa","fi","fr","it","ja",};
-        //localeBox = new JComboBox(localeString);
+        // Language
         localeBox = buildLocaleCombo();
-        //if (Alchemy.preferences.undoDepth==0) {
         localeBox.setSelectedIndex(localeStringToInt(Alchemy.preferences.locale));
-        //}else if(Alchemy.preferences.undoDepth==1){
-        //    undoDepthBox.setSelectedIndex(1);
-        //}else{
-        //    undoDepthBox.setSelectedIndex(2);
-        //}
-        localeSelector.add(localeBox);
-        //undoDepthSelector.add(restart);
-        gp.add(localeSelector);
-        
+        addFormRow(form, c, 3, Alchemy.bundle.getString("locale"), localeBox);
+
+        gp.add(form);
+        gp.add(Box.createVerticalStrut(8));
 
         // MODULES LABEL
         JPanel modulesLabelPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         modulesLabelPanel.setOpaque(false);
         modulesLabelPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-        JLabel modulesLabel = new JLabel(Alchemy.bundle.getString("modules") + ":");
+        JLabel modulesLabel = new JLabel(Alchemy.bundle.getString("modules") + (Alchemy.bundle.getLocale().getLanguage().equals("fr") ? "\u00A0:" : ":"));
         modulesLabelPanel.setOpaque(false);
         modulesLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 2, 0));
         modulesLabelPanel.add(modulesLabel);
@@ -683,14 +648,30 @@ class AlcPreferences implements AlcConstants {
         gp.add(modulesLabelPanel);
         gp.add(getModulesPane());
         
-        JLabel restart5 = new JLabel("These Options Require Alchemy To Be Restarted");
+        JLabel restart5 = new JLabel(Alchemy.bundle.getString("optionsNextLaunch"));
         restart5.setFont(FONT_SMALL);
-        restart5.setForeground(Color.GRAY);
+        restart5.setForeground(AlcTheme.isModern() ? UIManager.getColor("Label.disabledForeground") : Color.GRAY);
+        restart5.setAlignmentX(Component.CENTER_ALIGNMENT);
         restart5.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
         gp.add(Box.createVerticalStrut(3));
         gp.add(restart5);
         
         return gp;
+    }
+
+    /** One row of the form: label on the right of its column, then the choice */
+    private static void addFormRow(JPanel form, GridBagConstraints c, int row, String label, JComponent field) {
+        c.gridy = row;
+        c.gridx = 0;
+        c.anchor = GridBagConstraints.LINE_END;
+        c.fill = GridBagConstraints.NONE;
+        // French puts a space before the colon
+        boolean fr = Alchemy.bundle.getLocale().getLanguage().equals("fr");
+        form.add(new JLabel(label + (fr ? "\u00A0:" : ":")), c);
+        c.gridx = 1;
+        c.anchor = GridBagConstraints.LINE_START;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        form.add(field, c);
     }
 
     private JScrollPane getModulesPane() {
@@ -699,7 +680,7 @@ class AlcPreferences implements AlcConstants {
         //Create the scroll pane and add the panel to it.
         scrollPane = new JScrollPane(modulesPanel, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
         //scrollPane.setBorder(BorderFactory.createEmptyBorder(1, 1, 1, 1));
-        scrollPane.setPreferredSize(new Dimension(prefsWindowSize.width - 30, 230));
+        scrollPane.setPreferredSize(new Dimension(prefsWindowSize.width - 30, 200));
 
         return scrollPane;
     }
@@ -999,6 +980,25 @@ class AlcPreferences implements AlcConstants {
             n++;
         }
         JComboBox lBox = new JComboBox(lString);
+        // Each language by its own name: Deutsch, English, Français...
+        lBox.setRenderer(new DefaultListCellRenderer() {
+
+            @Override
+            public Component getListCellRendererComponent(JList list, Object value, int index, boolean selected, boolean focus) {
+                String code = String.valueOf(value);
+                String name;
+                if (code.equals("system")) {
+                    name = Alchemy.bundle.getString("appearanceSystem");
+                } else {
+                    Locale l = Locale.forLanguageTag(code.replace('_', '-'));
+                    name = l.getDisplayName(l);
+                    if (!name.isEmpty()) {
+                        name = name.substring(0, 1).toUpperCase(l) + name.substring(1);
+                    }
+                }
+                return super.getListCellRendererComponent(list, name, index, selected, focus);
+            }
+        });
         return lBox;
     }
     private int localeStringToInt(String s){
@@ -1070,7 +1070,8 @@ class AlcPreferences implements AlcConstants {
             AlcModule currentModule = modules[i];
             String moduleName = currentModule.getName();
             final String moduleNodeName = modulePrefix + moduleName;
-            final JCheckBox checkBox = new JCheckBox(moduleName);
+            final JCheckBox checkBox = new JCheckBox(currentModule.getDisplayName());
+            checkBox.setToolTipText(currentModule.getDisplayDescription());
             if (!AlcTheme.isModern()) {
                 checkBox.setBackground(COLOR_UI_START);
             }

@@ -58,10 +58,10 @@ class AlcCheckBoxMenuItem extends JCheckBoxMenuItem implements AlcShortcutInterf
 
     void setup(AlcModule module) {
 
-        setup(module.getName(), -1);
+        setup(module.getDisplayName(), -1);
         this.index = module.getIndex();
         this.moduleType = module.getModuleType();
-        this.toolTip = module.getDescription();
+        this.toolTip = module.getDisplayDescription();
         this.setToolTipText(toolTip);
 
         // Set the intial state to false

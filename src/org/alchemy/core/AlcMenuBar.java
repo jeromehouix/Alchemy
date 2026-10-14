@@ -45,6 +45,8 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
     private AlcCheckBoxMenuItem linkSessionItem;
     /** Fullscreen toggle global so it can be set on startup */
     AlcCheckBoxMenuItem fullScreenItem, transparentItem;
+    /** File > Export for print */
+    private AlcHighResDialog hiresDialog;
     /** View > Exact render, kept in sync with the toolbar button */
     private AlcCheckBoxMenuItem exactRenderItem;
 
@@ -92,13 +94,10 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         AlcMenu fileMenu = new AlcMenu(getS("fileTitle"));
 
         // New
-        String newTitle = getS("newTitle");
         AbstractAction newAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
-
                 if (Alchemy.canvas.shapes.size() > 0) {
-
                     boolean result = AlcUtil.showConfirmDialogFromBundle("newWinDialogTitle", "newWinDialogMessage", "newMacDialogTitle", "newMacDialogMessage");
                     if (result) {
                         Alchemy.canvas.clear();
@@ -107,27 +106,58 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             }
         };
         AlcMenuItem newItem = new AlcMenuItem(newAction);
-        // Shortcut - Modifier n
         int newKey = Alchemy.shortcuts.setShortcut(newItem, KeyEvent.VK_N, "newTitle", newAction, KEY_MODIFIER);
-        newItem.setup(newTitle, newKey);
+        newItem.setup(getS("newTitle"), newKey);
         fileMenu.add(newItem);
 
         fileMenu.add(new JSeparator());
 
-        // Export
-        String exportTitle = getS("exportTitle");
-        AbstractAction exportAction = new AbstractAction() {
+        // Import stamps into Pull Shapes
+        AbstractAction importAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
-                export();
+                importStamps();
             }
         };
-        AlcMenuItem exportItem = new AlcMenuItem(exportAction);
-        // Shortcut - Modifier e
-        int exportKey = Alchemy.shortcuts.setShortcut(exportItem, KeyEvent.VK_E, "exportTitle", exportAction, KEY_MODIFIER);
-        exportItem.setup(exportTitle, exportKey);
+        AlcMenuItem importItem = new AlcMenuItem(importAction);
+        int importKey = Alchemy.shortcuts.setShortcut(importItem, KeyEvent.VK_I, "importStampsTitle", importAction, KEY_MODIFIER);
+        importItem.setup(getS("importStampsTitle"), importKey);
+        fileMenu.add(importItem);
 
-        fileMenu.add(exportItem);
+        fileMenu.add(new JSeparator());
+
+        // Export: one item per format
+        AlcMenu exportMenu = submenu(new AlcMenu(getS("exportMenuTitle")));
+        AbstractAction exportSvgAction = exportAction("SVG");
+        AlcMenuItem exportSvgItem = new AlcMenuItem(exportSvgAction);
+        int exportKey = Alchemy.shortcuts.setShortcut(exportSvgItem, KeyEvent.VK_E, "exportSvgTitle", exportSvgAction, KEY_MODIFIER);
+        exportSvgItem.setup(getS("exportSvgTitle"), exportKey);
+        exportMenu.add(exportSvgItem);
+        exportMenu.add(exportItem("exportPdfTitle", "PDF"));
+        exportMenu.add(new JSeparator());
+        exportMenu.add(exportItem("exportPngTitle", "PNG"));
+        exportMenu.add(exportItem("exportPng16MenuTitle", getS("exportPng16Title")));
+        exportMenu.add(exportItem("exportJpgTitle", "JPG"));
+        fileMenu.add(exportMenu);
+
+        // Export for print: large images rendered from the vectors
+        AbstractAction hiresAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                if (hiresDialog == null) {
+                    hiresDialog = new AlcHighResDialog();
+                }
+                hiresDialog.showWindow();
+            }
+        };
+        AlcMenuItem hiresItem = new AlcMenuItem(hiresAction);
+        int hiresKey = Alchemy.shortcuts.setShortcut(hiresItem, KeyEvent.VK_E, "hiresTitle", hiresAction, KEY_MODIFIER | KeyEvent.SHIFT_MASK);
+        hiresItem.setup(getS("hiresTitle"));
+        hiresItem.setAccelerator(KeyStroke.getKeyStroke(hiresKey, KEY_MODIFIER | KeyEvent.SHIFT_MASK));
+        fileMenu.add(hiresItem);
+
+        // Open the drawing in another application
+        fileMenu.add(switchMenu());
 
         fileMenu.add(new JSeparator());
 
@@ -143,7 +173,6 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         fileMenu.add(pageItem);
 
         // Print
-        String printTitle = getS("printTitle");
         AbstractAction printAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
@@ -151,23 +180,19 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             }
         };
         AlcMenuItem printItem = new AlcMenuItem(printAction);
-        // Shortcut - Modifier p
         int printKey = Alchemy.shortcuts.setShortcut(printItem, KeyEvent.VK_P, "printTitle", printAction, KEY_MODIFIER);
-        printItem.setup(printTitle, printKey);
+        printItem.setup(getS("printTitle"), printKey);
         fileMenu.add(printItem);
 
-
-        // Exit - not included on a MAC
+        // Exit - in the application menu on a Mac
         if (Alchemy.OS != OS_MAC) {
             fileMenu.add(new JSeparator());
-
             AbstractAction exitAction = new AbstractAction() {
 
                 public void actionPerformed(ActionEvent e) {
                     Alchemy.window.exitAlchemy();
                 }
             };
-
             AlcMenuItem exitItem = new AlcMenuItem(exitAction);
             exitItem.setup(getS("exitTitle"));
             fileMenu.add(exitItem);
@@ -178,11 +203,11 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         //////////////////////////////////////////////////////////////
         // EDIT MENU
         //////////////////////////////////////////////////////////////
-
         AlcMenu editMenu = new AlcMenu(getS("editTitle"));
 
-        // Copy
-        String copyTitle = getS("copyTitle");
+        // Undo and clear: the actions of the toolbar
+        editMenu.add(forwardItem("undoTitle"));
+
         AbstractAction copyAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
@@ -190,17 +215,17 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             }
         };
         AlcMenuItem copyItem = new AlcMenuItem(copyAction);
-        // Shortcut - Modifier c
         int copyKey = Alchemy.shortcuts.setShortcut(copyItem, KeyEvent.VK_C, "copyTitle", copyAction, KEY_MODIFIER);
-        copyItem.setup(copyTitle, copyKey);
+        copyItem.setup(getS("copyTitle"), copyKey);
         editMenu.add(copyItem);
 
-        
+        AlcMenuItem clearItem = forwardItem("clearTitle");
+        clearItem.setText(getS("clearDescription"));
+        editMenu.add(clearItem);
+
         editMenu.add(new JSeparator());
 
-
         // Flip Horizontal
-        String flipHorizontalTitle = getS("flipHorizontal");
         AbstractAction flipHorizontalAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
@@ -208,13 +233,11 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             }
         };
         AlcMenuItem flipHorizontalItem = new AlcMenuItem(flipHorizontalAction);
-        // Shortcut - Modifier ;
         int flipHorizontalKey = Alchemy.shortcuts.setShortcut(flipHorizontalItem, KeyEvent.VK_SEMICOLON, "flipHorizontal", flipHorizontalAction, KEY_MODIFIER);
-        flipHorizontalItem.setup(flipHorizontalTitle, flipHorizontalKey);
+        flipHorizontalItem.setup(getS("flipHorizontal"), flipHorizontalKey);
         editMenu.add(flipHorizontalItem);
 
         // Flip Vertical
-        String flipVerticalTitle = getS("flipVertical");
         AbstractAction flipVerticalAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
@@ -222,9 +245,8 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             }
         };
         AlcMenuItem flipVerticalItem = new AlcMenuItem(flipVerticalAction);
-        // Shortcut - Modifier '
         int flipVerticalKey = Alchemy.shortcuts.setShortcut(flipVerticalItem, KeyEvent.VK_QUOTE, "flipVertical", flipVerticalAction, KEY_MODIFIER);
-        flipVerticalItem.setup(flipVerticalTitle, flipVerticalKey);
+        flipVerticalItem.setup(getS("flipVertical"), flipVerticalKey);
         editMenu.add(flipVerticalItem);
 
         this.add(editMenu);
@@ -279,6 +301,11 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         transparentItem.setup(transparentTitle, transparentKey);
         viewMenu.add(transparentItem);
 
+        // Hide or show the toolbars (Space)
+        viewMenu.add(forwardItem("toggleToolBar"));
+
+        viewMenu.add(new JSeparator());
+
         // Exact render: composite the layers in high precision
         AbstractAction exactRenderAction = new AbstractAction() {
 
@@ -293,6 +320,68 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         exactRenderItem.setToolTipText(getS("exactRenderDescription"));
         exactRenderItem.setState(Alchemy.canvas.isExactRender());
         viewMenu.add(exactRenderItem);
+
+        // Smoothing (anti-aliasing) of the display and the bitmap exports
+        AbstractAction smoothingAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                AlcCheckBoxMenuItem source = (AlcCheckBoxMenuItem) e.getSource();
+                Alchemy.canvas.setSmoothing(source.getState());
+                Alchemy.canvas.redraw();
+            }
+        };
+        AlcCheckBoxMenuItem smoothingItem = new AlcCheckBoxMenuItem(smoothingAction);
+        smoothingItem.setSelected(Alchemy.preferences.smoothing);
+        smoothingItem.setup(getS("smoothingTitle"));
+        viewMenu.add(smoothingItem);
+
+        viewMenu.add(new JSeparator());
+
+        // Zoom: the view only, the drawing and its exports do not change
+        AbstractAction zoomInAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                Alchemy.canvas.zoomCentered(1.25);
+            }
+        };
+        AlcMenuItem zoomInItem = new AlcMenuItem(zoomInAction);
+        int zoomInKey = Alchemy.shortcuts.setShortcut(zoomInItem, KeyEvent.VK_EQUALS, "zoomInTitle", zoomInAction, KEY_MODIFIER);
+        zoomInItem.setup(getS("zoomInTitle"), zoomInKey);
+        viewMenu.add(zoomInItem);
+
+        AbstractAction zoomOutAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                Alchemy.canvas.zoomCentered(1 / 1.25);
+            }
+        };
+        AlcMenuItem zoomOutItem = new AlcMenuItem(zoomOutAction);
+        int zoomOutKey = Alchemy.shortcuts.setShortcut(zoomOutItem, KeyEvent.VK_MINUS, "zoomOutTitle", zoomOutAction, KEY_MODIFIER);
+        zoomOutItem.setup(getS("zoomOutTitle"), zoomOutKey);
+        viewMenu.add(zoomOutItem);
+
+        AbstractAction zoomResetAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                Alchemy.canvas.resetView();
+            }
+        };
+        AlcMenuItem zoomResetItem = new AlcMenuItem(zoomResetAction);
+        int zoomResetKey = Alchemy.shortcuts.setShortcut(zoomResetItem, KeyEvent.VK_0, "zoomResetTitle", zoomResetAction, KEY_MODIFIER | KeyEvent.SHIFT_MASK);
+        zoomResetItem.setup(getS("zoomResetTitle"), zoomResetKey);
+        zoomResetItem.setAccelerator(KeyStroke.getKeyStroke(zoomResetKey, KEY_MODIFIER | KeyEvent.SHIFT_MASK));
+        viewMenu.add(zoomResetItem);
+
+        // Other keyboards: + and - of the numeric keypad, Cmd Shift = (Cmd +)
+        for (JRootPane root : new JRootPane[]{Alchemy.window.getRootPane(), Alchemy.palette.getRootPane()}) {
+            InputMap map = root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ADD, KEY_MODIFIER), "zoomInExtra");
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_PLUS, KEY_MODIFIER), "zoomInExtra");
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, KEY_MODIFIER | KeyEvent.SHIFT_MASK), "zoomInExtra");
+            map.put(KeyStroke.getKeyStroke(KeyEvent.VK_SUBTRACT, KEY_MODIFIER), "zoomOutExtra");
+            root.getActionMap().put("zoomInExtra", zoomInAction);
+            root.getActionMap().put("zoomOutExtra", zoomOutAction);
+        }
 
         viewMenu.add(new JSeparator());
 
@@ -447,6 +536,7 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             intervalMenu.add(intervalItem);
         }
         intervalMenu.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 5));
+        submenu(intervalMenu);
         sessionMenu.add(intervalMenu);
 
         //sessionMenu.add(new JSeparator());
@@ -566,131 +656,9 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
 
 
         //////////////////////////////////////////////////////////////
-        // SWITCH MENU
-        //////////////////////////////////////////////////////////////
-        AlcMenu switchMenu = new AlcMenu(getS("switchTitle"));
-
-        // Switch Vector
-        String switchVectorTitle = getS("switchVectorTitle");
-        AbstractAction switchVectorAction = new AbstractAction() {
-
-            public void actionPerformed(ActionEvent e) {
-                switchVector();
-            }
-        };
-        AlcMenuItem switchVectorItem = new AlcMenuItem(switchVectorAction);
-        // Shortcut - Modifier v
-        int vectorKey = Alchemy.shortcuts.setShortcut(switchVectorItem, KeyEvent.VK_V, "switchVectorTitle", switchVectorAction, KEY_MODIFIER);
-        switchVectorItem.setup(switchVectorTitle, vectorKey);
-        switchMenu.add(switchVectorItem);
-
-        // Switch Bitmaps
-        String switchBitmapTitle = getS("switchBitmapTitle");
-        AbstractAction switchBitmapAction = new AbstractAction() {
-
-            public void actionPerformed(ActionEvent e) {
-                switchBitmap();
-            }
-        };
-        AlcMenuItem switchBitmapItem = new AlcMenuItem(switchBitmapAction);
-        // Shortcut - Modifier v
-        int bitmapKey = Alchemy.shortcuts.setShortcut(switchBitmapItem, KeyEvent.VK_B, "switchBitmapTitle", switchBitmapAction, KEY_MODIFIER);
-        switchBitmapItem.setup(switchBitmapTitle, bitmapKey);
-        switchMenu.add(switchBitmapItem);
-
-        switchMenu.add(new JSeparator());
-
-        // Switch Vector App
-        final String setVectorApp = getS("setVectorApp");
-        AbstractAction switchVectorAppAction = new AbstractAction() {
-
-            public void actionPerformed(ActionEvent e) {
-                File file = AlcUtil.showFileChooser(platformAppDir);
-                if (file != null) {
-                    System.out.println(file.toString());
-                    Alchemy.preferences.switchVectorApp = file.toString();
-                }
-            }
-        };
-        AlcMenuItem switchVectorAppItem = new AlcMenuItem(switchVectorAppAction);
-        switchVectorAppItem.setup(setVectorApp);
-        switchMenu.add(switchVectorAppItem);
-
-        // Format submenu
-        AlcMenu formatMenu = new AlcMenu(getS("setVectorFormat"));
-        if (Alchemy.OS != OS_LINUX) {
-            formatMenu.setOpaque(true);
-            if (!AlcTheme.isModern()) {
-                formatMenu.setBackground(AlcToolBar.COLOR_UI_HIGHLIGHT);
-            }
-        }
-        ButtonGroup formatGroup = new ButtonGroup();
-        //PDF
-        AlcRadioButtonMenuItem pdfItem = new AlcRadioButtonMenuItem(Alchemy.preferences.FORMAT_PDF, "PDF");
-        if (Alchemy.preferences.switchVectorFormat == Alchemy.preferences.FORMAT_PDF) {
-            pdfItem.setSelected(true);
-        }
-        pdfItem.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                AlcRadioButtonMenuItem source = (AlcRadioButtonMenuItem) e.getSource();
-                Alchemy.preferences.switchVectorFormat = source.getIndex();
-            }
-        });
-        formatGroup.add(pdfItem);
-        formatMenu.add(pdfItem);
-        //SVG
-        AlcRadioButtonMenuItem svgItem = new AlcRadioButtonMenuItem(Alchemy.preferences.FORMAT_SVG, "SVG");
-        if (Alchemy.preferences.switchVectorFormat == Alchemy.preferences.FORMAT_SVG) {
-            svgItem.setSelected(true);
-        }
-        svgItem.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                AlcRadioButtonMenuItem source = (AlcRadioButtonMenuItem) e.getSource();
-                Alchemy.preferences.switchVectorFormat = source.getIndex();
-            }
-        });
-        formatGroup.add(svgItem);
-        formatMenu.add(svgItem);
-        
-        formatMenu.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 5));
-        switchMenu.add(formatMenu);
-
-
-        // Switch Bitmap App
-        final String setBitmapApp = getS("setBitmapApp");
-        AbstractAction switchBitmapAppAction = new AbstractAction() {
-
-            public void actionPerformed(ActionEvent e) {
-                File file = AlcUtil.showFileChooser(platformAppDir);
-                if (file != null) {
-                    System.out.println(file.toString());
-                    Alchemy.preferences.switchBitmapApp = file.toString();
-                }
-            }
-        };
-        AlcMenuItem switchBitmapAppItem = new AlcMenuItem(switchBitmapAppAction);
-        switchBitmapAppItem.setup(setBitmapApp);
-        switchMenu.add(switchBitmapAppItem);
-        this.add(switchMenu);
-
-        //////////////////////////////////////////////////////////////
         // SETTINGS MENU
         //////////////////////////////////////////////////////////////
         AlcMenu settingsMenu = new AlcMenu(getS("settingsTitle"));
-
-        // Smoothing
-        AbstractAction smoothingAction = new AbstractAction() {
-
-            public void actionPerformed(ActionEvent e) {
-                AlcCheckBoxMenuItem source = (AlcCheckBoxMenuItem) e.getSource();
-                Alchemy.canvas.setSmoothing(source.getState());
-                Alchemy.canvas.redraw();
-            }
-        };
-        AlcCheckBoxMenuItem smoothingItem = new AlcCheckBoxMenuItem(smoothingAction);
-        smoothingItem.setSelected(Alchemy.preferences.smoothing);
-        smoothingItem.setup(getS("smoothingTitle"));
-        settingsMenu.add(smoothingItem);
 
         // Line Smoothing
         AbstractAction lineSmoothingAction = new AbstractAction() {
@@ -698,7 +666,6 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
             public void actionPerformed(ActionEvent e) {
                 AlcCheckBoxMenuItem source = (AlcCheckBoxMenuItem) e.getSource();
                 AlcShape.setLineSmoothing(source.getState());
-
             }
         };
         AlcCheckBoxMenuItem lineSmoothingItem = new AlcCheckBoxMenuItem(lineSmoothingAction);
@@ -720,8 +687,8 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         keyboardShortcutsItem.setup(getS("keyboardShortcutsTitle"));
         settingsMenu.add(keyboardShortcutsItem);
 
+        // Options - in the application menu on a Mac (Cmd ,)
         if (Alchemy.OS != OS_MAC) {
-            // Options
             AbstractAction optionsAction = new AbstractAction() {
 
                 public void actionPerformed(ActionEvent e) {
@@ -729,16 +696,14 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
                 }
             };
             AlcMenuItem optionsItem = new AlcMenuItem(optionsAction);
-            //optionsItem.setup(getS("optionsTitle"));
             int optionsKey = Alchemy.shortcuts.setShortcut(optionsItem, KeyEvent.VK_O, "optionsTitle", optionsAction, KEY_MODIFIER);
             optionsItem.setup(getS("optionsTitle"), optionsKey);
             settingsMenu.add(optionsItem);
         }
 
-
         this.add(settingsMenu);
 
-        //////////////////////////////////////////////////////////////  
+        //////////////////////////////////////////////////////////////
         // HELP MENU
         //////////////////////////////////////////////////////////////
         AlcMenu helpMenu = new AlcMenu(getS("helpTitle"));
@@ -746,63 +711,50 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         AbstractAction helpAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
-
                 File manual = AlcPaths.file("Alchemy.pdf");
                 if (manual.exists()) {
                     AlcUtil.openPDF(manual);
                 } else {
-                    System.err.println("Error locating the Alchemy manual");
-
-                    // Try now to open the Alchemy documentation website instead
-                    // Check which site to send them to
-                    String locale = LOCALE.getLanguage().toLowerCase();
-                    if (locale.startsWith("ja")) {
-                        AlcUtil.openURL("http://al.chemy.org/ja/documentation/");
-                    } else {
-                        AlcUtil.openURL("http://al.chemy.org/documentation/");
-                    }
+                    AlcUtil.openURL("http://al.chemy.org/documentation/");
                 }
-
             }
         };
-
         AlcMenuItem helpItem = new AlcMenuItem(helpAction);
         helpItem.setup(getS("alchemyHelpTitle"));
         helpMenu.add(helpItem);
+
+        AlcMenuItem shortcutsHelpItem = new AlcMenuItem(keyboardShortcutsAction);
+        shortcutsHelpItem.setup(getS("keyboardShortcutsTitle"));
+        helpMenu.add(shortcutsHelpItem);
+
         helpMenu.add(new JSeparator());
 
-
-        // Link to the Alchemy Website                
+        // The original Alchemy website
         AbstractAction wwwAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
-                // Check which site to send them to
                 String locale = LOCALE.getLanguage().toLowerCase();
-                if (locale.startsWith("ja")) {
-                    AlcUtil.openURL("http://al.chemy.org/ja/");
-                } else {
-                    AlcUtil.openURL("http://al.chemy.org/");
-                }
+                AlcUtil.openURL(locale.startsWith("ja") ? "http://al.chemy.org/ja/" : "http://al.chemy.org/");
             }
         };
         AlcMenuItem wwwItem = new AlcMenuItem(wwwAction);
         wwwItem.setup(getS("alchemyWebsiteTitle"));
         helpMenu.add(wwwItem);
-        // Link to the Alchemy forum           
-        AbstractAction forumAction = new AbstractAction() {
+
+        // This version: source, releases, issues
+        AbstractAction forkAction = new AbstractAction() {
 
             public void actionPerformed(ActionEvent e) {
-                AlcUtil.openURL("http://al.chemy.org/forum/");
+                AlcUtil.openURL("https://github.com/jeromehouix/Alchemy");
             }
         };
-        AlcMenuItem forumItem = new AlcMenuItem(forumAction);
-        forumItem.setup(getS("alchemyForumTitle"));
-        helpMenu.add(forumItem);
+        AlcMenuItem forkItem = new AlcMenuItem(forkAction);
+        forkItem.setup(getS("alchemyForkTitle"));
+        helpMenu.add(forkItem);
 
-        // About menuitem not included on a MAC
+        // About - in the application menu on a Mac
         if (Alchemy.OS != OS_MAC) {
             helpMenu.add(new JSeparator());
-
             AbstractAction aboutAction = new AbstractAction() {
 
                 public void actionPerformed(ActionEvent e) {
@@ -815,6 +767,188 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         }
 
         this.add(helpMenu);
+    }
+
+    /** A menu inside a menu: lined up with the items */
+    private static AlcMenu submenu(AlcMenu menu) {
+        menu.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
+        menu.setOpaque(!AlcTheme.isModern());
+        return menu;
+    }
+
+    /** Submenu to open the drawing in another application */
+    private AlcMenu switchMenu() {
+        AlcMenu switchMenu = submenu(new AlcMenu(getS("switchTitle")));
+
+        AbstractAction switchVectorAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                switchVector();
+            }
+        };
+        AlcMenuItem switchVectorItem = new AlcMenuItem(switchVectorAction);
+        int vectorKey = Alchemy.shortcuts.setShortcut(switchVectorItem, KeyEvent.VK_V, "switchVectorTitle", switchVectorAction, KEY_MODIFIER);
+        switchVectorItem.setup(getS("switchVectorTitle"), vectorKey);
+        switchMenu.add(switchVectorItem);
+
+        AbstractAction switchBitmapAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                switchBitmap();
+            }
+        };
+        AlcMenuItem switchBitmapItem = new AlcMenuItem(switchBitmapAction);
+        int bitmapKey = Alchemy.shortcuts.setShortcut(switchBitmapItem, KeyEvent.VK_B, "switchBitmapTitle", switchBitmapAction, KEY_MODIFIER);
+        switchBitmapItem.setup(getS("switchBitmapTitle"), bitmapKey);
+        switchMenu.add(switchBitmapItem);
+
+        switchMenu.add(new JSeparator());
+
+        AbstractAction switchVectorAppAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                File file = AlcUtil.showFileChooser(platformAppDir);
+                if (file != null) {
+                    Alchemy.preferences.switchVectorApp = file.toString();
+                }
+            }
+        };
+        AlcMenuItem switchVectorAppItem = new AlcMenuItem(switchVectorAppAction);
+        switchVectorAppItem.setup(getS("setVectorApp"));
+        switchMenu.add(switchVectorAppItem);
+
+        // Format submenu
+        AlcMenu formatMenu = submenu(new AlcMenu(getS("setVectorFormat")));
+        ButtonGroup formatGroup = new ButtonGroup();
+        ActionListener formatListener = new ActionListener() {
+
+            public void actionPerformed(ActionEvent e) {
+                AlcRadioButtonMenuItem source = (AlcRadioButtonMenuItem) e.getSource();
+                Alchemy.preferences.switchVectorFormat = source.getIndex();
+            }
+        };
+        AlcRadioButtonMenuItem pdfItem = new AlcRadioButtonMenuItem(Alchemy.preferences.FORMAT_PDF, "PDF");
+        pdfItem.setSelected(Alchemy.preferences.switchVectorFormat == Alchemy.preferences.FORMAT_PDF);
+        pdfItem.addActionListener(formatListener);
+        formatGroup.add(pdfItem);
+        formatMenu.add(pdfItem);
+        AlcRadioButtonMenuItem svgItem = new AlcRadioButtonMenuItem(Alchemy.preferences.FORMAT_SVG, "SVG");
+        svgItem.setSelected(Alchemy.preferences.switchVectorFormat == Alchemy.preferences.FORMAT_SVG);
+        svgItem.addActionListener(formatListener);
+        formatGroup.add(svgItem);
+        formatMenu.add(svgItem);
+        switchMenu.add(formatMenu);
+
+        AbstractAction switchBitmapAppAction = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                File file = AlcUtil.showFileChooser(platformAppDir);
+                if (file != null) {
+                    Alchemy.preferences.switchBitmapApp = file.toString();
+                }
+            }
+        };
+        AlcMenuItem switchBitmapAppItem = new AlcMenuItem(switchBitmapAppAction);
+        switchBitmapAppItem.setup(getS("setBitmapApp"));
+        switchMenu.add(switchBitmapAppItem);
+        return switchMenu;
+    }
+
+    /**
+     * A menu item for an action of the toolbar (undo, clear...): same action,
+     * and the keys chosen by the user shown in the menu
+     */
+    private AlcMenuItem forwardItem(final String key) {
+        final Action target = Alchemy.shortcuts.getAction(key);
+        AbstractAction action = new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                if (target != null) {
+                    target.actionPerformed(e);
+                }
+            }
+        };
+        AlcMenuItem item = new AlcMenuItem(action);
+        item.setup(getS(key));
+        KeyStroke keys = Alchemy.shortcuts.getKeyStroke(key);
+        if (keys != null && keys.getModifiers() != 0) {
+            item.setAccelerator(keys);
+        } else if (keys != null) {
+            // A single key (Space): shown in the title, not as a menu key, so
+            // the menu bar of the Mac never takes it from a text field
+            item.setText(getS(key) + "  (" + AlcShortcuts.getShortcutString(keys.getKeyCode(), 0) + ")");
+        }
+        item.setEnabled(target != null);
+        return item;
+    }
+
+    private AbstractAction exportAction(final String format) {
+        return new AbstractAction() {
+
+            public void actionPerformed(ActionEvent e) {
+                exportAs(format);
+            }
+        };
+    }
+
+    private AlcMenuItem exportItem(String titleKey, String format) {
+        AlcMenuItem item = new AlcMenuItem(exportAction(format));
+        item.setup(getS(titleKey));
+        return item;
+    }
+
+    /** Select Pull Shapes and ask for SVG or PDF files to add to the stamps */
+    private void importStamps() {
+        Action select = Alchemy.shortcuts.getAction("Pull Shapes");
+        AlcModule pull = null;
+        for (int i = 0; i < Alchemy.plugins.creates.length; i++) {
+            if ("Pull Shapes".equals(Alchemy.plugins.creates[i].getName())) {
+                pull = Alchemy.plugins.creates[i];
+            }
+        }
+        if (pull == null) {
+            JOptionPane.showMessageDialog(Alchemy.window, getS("importStampsNoModule"));
+            return;
+        }
+        if (select != null && Alchemy.plugins.creates[Alchemy.plugins.currentCreate] != pull) {
+            select.actionPerformed(new ActionEvent(this, ActionEvent.ACTION_PERFORMED, "import"));
+        }
+        try {
+            pull.getClass().getMethod("importStamps").invoke(pull);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    /** Ask where to save, with the system dialog on a Mac */
+    private File chooseSaveFile(String title, String extension) {
+        String name = Alchemy.bundle.getString("defaultFileName") + "." + extension;
+        File file;
+        if (Alchemy.OS == OS_MAC) {
+            FileDialog chooser = new FileDialog(Alchemy.window, title, FileDialog.SAVE);
+            chooser.setDirectory(Alchemy.preferences.exportDirectory);
+            chooser.setFile(name);
+            chooser.setVisible(true);
+            if (chooser.getFile() == null) {
+                return null;
+            }
+            file = new File(chooser.getDirectory(), chooser.getFile());
+        } else {
+            AlcFileChooser fc = new AlcFileChooser(Alchemy.preferences.exportDirectory);
+            fc.setDialogTitle(title);
+            fc.setSelectedFile(new File(name));
+            if (fc.showSaveDialog(this) != AlcFileChooser.APPROVE_OPTION) {
+                return null;
+            }
+            file = fc.getSelectedFile();
+        }
+        if (!file.getName().toLowerCase().endsWith("." + extension)) {
+            file = new File(file.getPath() + "." + extension);
+        }
+        if (file.getParent() != null) {
+            Alchemy.preferences.exportDirectory = file.getParent();
+        }
+        return file;
     }
 
     /** Get a string from the resource bundle */
@@ -865,55 +999,32 @@ class AlcMenuBar extends JMenuBar implements AlcConstants {
         page = printer.pageDialog(defaultPage);
     }
 
-    /** Ask for a path and filename to export a PDF to */
-    private void export() {
-
-        final AlcFileChooser fc = new AlcFileChooser(Alchemy.preferences.exportDirectory);
-        fc.setDialogTitle(Alchemy.bundle.getString("exportFileTitle"));
-        fc.setAcceptAllFileFilterUsed(false);
-//        fc.setFileFilter(new ExportFileFilter("PNG - Transparent"));
-        fc.setFileFilter(new ExportFileFilter("PNG"));
-        fc.setFileFilter(new ExportFileFilter(getS("exportPng16Title")));
-        fc.setFileFilter(new ExportFileFilter("JPG"));
-//        fc.setFileFilter(new ExportFileFilter("GIF"));
-        fc.setFileFilter(new ExportFileFilter("PDF"));
-        fc.setFileFilter(new ExportFileFilter("SVG"));
-        fc.setSelectedFile(new File(Alchemy.bundle.getString("defaultFileName")));
-
-        // in response to a button click:
-        int returnVal = fc.showSaveDialog(this);
-        if (returnVal == AlcFileChooser.APPROVE_OPTION) {
-            
-            File file = fc.getSelectedFile();
-            String parent = file.getParent();
-            if(parent != null){
-                Alchemy.preferences.exportDirectory = parent;
+    /** Export the drawing in a format: SVG, PDF, PNG, the 16-bit PNG or JPG */
+    private void exportAs(String format) {
+        boolean png16 = format.equals(getS("exportPng16Title"));
+        String extension = png16 ? "png" : format.toLowerCase();
+        File file = chooseSaveFile(getS("exportFileTitle") + " (" + (png16 ? "PNG 16" : format) + ")", extension);
+        if (file == null) {
+            return;
+        }
+        if (png16) {
+            try {
+                Alchemy.canvas.setGuide(false);
+                javax.imageio.ImageIO.write(Alchemy.canvas.renderExact().toImage16(), "png", file);
+            } catch (IOException ex) {
+                System.err.println(ex);
+            } finally {
+                Alchemy.canvas.setGuide(true);
             }
-            String format = fc.getFileFilter().getDescription();
-
-            if (format.equals(getS("exportPng16Title"))) {
-                // 16 bits per channel PNG of the high precision render
-                if (!file.getName().toLowerCase().endsWith(".png")) {
-                    file = new File(file.getPath() + ".png");
-                }
-                try {
-                    Alchemy.canvas.setGuide(false);
-                    javax.imageio.ImageIO.write(Alchemy.canvas.renderExact().toImage16(), "png", file);
-                } catch (IOException ex) {
-                    System.err.println(ex);
-                } finally {
-                    Alchemy.canvas.setGuide(true);
-                }
-            } else if (format.equals("PDF")) {
-                Alchemy.session.saveSinglePdf(file);
-            } else if (format.equals("SVG")) {
-                Alchemy.session.saveSVG(file);
-            } else if (format.equals("JPG") || format.equals("PNG")) {
-                if(exportDialog == null){
-                    exportDialog = new AlcExportDialog();
-                }
-                exportDialog.showWindow(file, format);
+        } else if (format.equals("PDF")) {
+            Alchemy.session.saveSinglePdf(file);
+        } else if (format.equals("SVG")) {
+            Alchemy.session.saveSVG(file);
+        } else {
+            if (exportDialog == null) {
+                exportDialog = new AlcExportDialog();
             }
+            exportDialog.showWindow(file, format);
         }
     }
 

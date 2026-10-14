@@ -277,22 +277,22 @@ public class AlcSimpleToolBar extends AlcAbstractToolBar implements AlcConstants
         };
 
         moduleButton.setAction(moduleAction);
-        moduleButton.setup(AlcUtil.getUrlPath(currentModule.getIconName(), currentModule.getClassLoader()), currentModule.getName());
+        moduleButton.setup(AlcUtil.getUrlPath(currentModule.getIconName(), currentModule.getClassLoader()), currentModule.getDisplayName());
 
         // Range from 0 - 8 mapped to keys 1 - 9
         if (count < 9) {
             if (createModule) {
-                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0 + count + 1, currentModule.getName(), moduleAction);
+                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0 + count + 1, currentModule.bundleKey(), moduleAction);
             } else {
-                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0 + count + 1, currentModule.getName(), moduleAction, KEY_MODIFIER);
+                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0 + count + 1, currentModule.bundleKey(), moduleAction, KEY_MODIFIER);
             }
 
         // Last key is mapped to 0
         } else if (count == 9) {
             if (createModule) {
-                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0, currentModule.getName(), moduleAction);
+                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0, currentModule.bundleKey(), moduleAction);
             } else {
-                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0, currentModule.getName(), moduleAction, KEY_MODIFIER);
+                Alchemy.shortcuts.setShortcut(moduleButton, KeyEvent.VK_0, currentModule.bundleKey(), moduleAction, KEY_MODIFIER);
             }
         }
 

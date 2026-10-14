@@ -46,9 +46,9 @@ public class Alchemy implements AlcConstants {
             OS = OS_MAC;
             // Unicode sequences to display the correct mac symbols for
             // Command/Apple, Shift, Alt/Option keys
-            KEY_MODIFIER_STRING = "?";
-            KEY_SHIFT_STRING = "?";
-            KEY_ALT_STRING = "?";
+            KEY_MODIFIER_STRING = "\u2318";
+            KEY_SHIFT_STRING = "\u21E7";
+            KEY_ALT_STRING = "\u2325";
 
         } else if (OS_NAME.indexOf("Windows") != -1) {
             OS = OS_WINDOWS;
