@@ -219,6 +219,16 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
         }
     }
 
+    /**
+     * Zoom of the canvas view: when zoomed in, the mouse moves by less than a
+     * canvas pixel, so the minimum distances between points shrink accordingly
+     * and the line keeps the detail drawn on screen.
+     */
+    private static double viewScale() {
+        AlcCanvas c = Alchemy.canvas;
+        return c == null ? 1 : Math.max(1, c.getViewScale());
+    }
+
     /** 
      * Add a curve point to the shape 
      * This method uses a simple smoothing algorithm to get rid of hard edges
@@ -252,7 +262,7 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
                     //System.out.println(p.x + " " + lastPt.x);
 
                     // Test to see if this point has moved far enough
-                    if (movement > minDistance) {
+                    if (movement > minDistance / viewScale()) {
 
                         // New control point value
                         Point2D.Float pt = new Point2D.Float();
@@ -300,7 +310,7 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
                 double movement = p.distance(lastPoint);
 
                 // Test to see if this point has moved far enough
-                if (movement > minDistance) {
+                if (movement > minDistance / viewScale()) {
                     path.lineTo(p.x, p.y);
                     savePoints(p);
                 }
@@ -334,7 +344,7 @@ public class AlcShape implements AlcConstants, Cloneable, Serializable {
             } else {
                 Point2D.Float lastPt = spine.get(spine.size() - 1);
                 double distance = p.distance(lastPt);
-                if (distance > minDistanceSpine) {
+                if (distance > minDistanceSpine / viewScale()) {
                     spine.add(p);
                     spineWidth.add(width);
                     createSpine();

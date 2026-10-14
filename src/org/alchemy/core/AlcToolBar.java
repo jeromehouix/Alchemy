@@ -219,6 +219,8 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         // (the modern toolbar stays docked)
         if (!modern) {
             setToolBarVisible(false);
+        } else {
+            keepShortcutsWorking(this);
         }
     }
     
@@ -955,9 +957,7 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
             public void actionPerformed(ActionEvent e) {
                 // quick-key used
                 if (!e.getSource().getClass().getName().endsWith("AlcToggleButton")) {               
-                    if(Alchemy.canvas.zoomCanvas(true)){
-                        zoomButton.setSelected(!zoomButton.isSelected());
-                    }
+                    Alchemy.canvas.zoomCanvas(true);
                 }else{
                     Alchemy.canvas.startZoomMousing();
                     if(zoomButton.isSelected()){
@@ -1346,7 +1346,30 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
         }
         subToolBar.revalidate();
         subToolBar.repaint();
+        if (modern) {
+            keepShortcutsWorking(subToolBar);
+        }
         refreshToolBar();
+    }
+
+    /**
+     * Modern interface: the look and feel gives the keyboard focus to the buttons
+     * people click, which then take Tab (focus traversal) and Space (press the
+     * button) instead of the Alchemy shortcuts. As with the macOS look and feel,
+     * buttons and lists of the toolbar never take the focus, and the fields that
+     * do (spinners, sliders) let Tab through.
+     */
+    private void keepShortcutsWorking(Container container) {
+        for (Component c : container.getComponents()) {
+            if (c instanceof AbstractButton || c instanceof JComboBox) {
+                c.setFocusable(false);
+            } else if (c instanceof JComponent) {
+                ((JComponent) c).setFocusTraversalKeysEnabled(false);
+            }
+            if (c instanceof Container) {
+                keepShortcutsWorking((Container) c);
+            }
+        }
     }
 
     /** Check if the sub sections are overflowing and trim them as required*/
@@ -1600,6 +1623,13 @@ public class AlcToolBar extends AlcAbstractToolBar implements AlcConstants{
     @Override
     void setZoomButtonSelected(){
         zoomButton.setSelected(true);
+    }
+
+    /** The zoom button shows if the canvas is zoomed in */
+    void syncZoomButton(boolean zoomed){
+        if (zoomButton != null) {
+            zoomButton.setSelected(zoomed);
+        }
     }
     
     
